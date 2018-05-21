@@ -1,5 +1,21 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Room(RoomId,RoomName,Room,_roomName,_roomUsers,_roomStory,_roomDeck,_roomPrivate,_roomId) where
+module Room(
+      RoomId
+    , RoomName
+    , Room
+    , _roomName
+    , _roomUsers
+    , _roomStory
+    , _roomDeck
+    , _roomPrivate
+    , _roomId
+    , roomId
+    , name
+    , owner
+    , users
+    , story
+    , deck
+    , private) where
 
 import           Control.Lens (makeLensesFor)
 import qualified Data.Map     as Map

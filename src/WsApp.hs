@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module WsApp where
+module WsApp (wsApp) where
 
 import           App                 (App, addUser, getUsers, removeUser)
 import           Command             (Command (Connect), parseCommand)
@@ -10,7 +10,7 @@ import qualified Control.Monad.Loops as Loops
 import qualified Data.Map            as Map
 import qualified Data.Text           as Text
 import qualified Network.WebSockets  as WS
-import           User                (User (User), UserId, UserName, conn,
+import           User                (User (User), UserId, UserName, connection,
                                       userId, userName)
 
 broadcast :: Concurrent.MVar App -> Text.Text -> IO ()
@@ -18,7 +18,7 @@ broadcast state msg = do
     s <- Concurrent.readMVar state
     let users = getUsers s
     Monad.forM_ users $ \c ->
-        WS.sendTextData (conn c) msg
+        WS.sendTextData (connection c) msg
 
 disconnectClient :: WS.Connection -> Concurrent.MVar App -> UserId -> IO ()
 disconnectClient conn state uid = Concurrent.modifyMVar state $ \s -> do
@@ -35,7 +35,7 @@ connectClient :: UserName -> WS.Connection -> Concurrent.MVar App -> IO UserId
 connectClient uname conn state = Concurrent.modifyMVar state $ \s -> do
     let usrs = getUsers s
         uid = nextId usrs
-        newState = addUser s User { userName=uname, userId=uid, conn=conn }
+        newState = addUser s User { userName=uname, userId=uid, connection=conn }
     return (newState, uid)
 
 

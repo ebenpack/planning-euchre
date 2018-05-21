@@ -1,5 +1,17 @@
 {-# LANGUAGE TemplateHaskell #-}
-module App(Rooms, Users, App, newApp,_appRooms,_appUsers,getUsers,getUser,addUser,removeUser,addRoom,removeRoom) where
+module App(
+      Rooms
+    , Users
+    , App
+    , newApp
+    , _appRooms
+    , _appUsers
+    , getUsers
+    , getUser
+    , addUser
+    , removeUser
+    , addRoom
+    , removeRoom) where
 
 import           Control.Lens (at, makeLensesFor, sans, (%~), (&), (?~), (^.))
 import qualified Data.Map     as Map

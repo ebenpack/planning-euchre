@@ -1,5 +1,13 @@
 {-# LANGUAGE TemplateHaskell #-}
-module User (User(User), UserName, UserId, _userName, _userId, userId, userName, conn) where
+module User (
+      User(User)
+    , UserName
+    , UserId
+    , _userName
+    , _userId
+    , userId
+    , userName
+    , connection) where
 
 import           Control.Lens       (makeLensesFor)
 import qualified Data.Text          as Text
@@ -9,9 +17,9 @@ type UserName = Text.Text
 
 type UserId = Int
 
-data User = User { userId   :: UserId
-                 , userName :: UserName
-                 , conn     :: WS.Connection }
+data User = User { userId     :: UserId
+                 , userName   :: UserName
+                 , connection :: WS.Connection }
 
 instance Show User where
     show usr = "User { userId=\""
