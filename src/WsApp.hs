@@ -1,6 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module WsApp where
 
+import           App                 (App, addUser, getUsers, removeUser)
+import           Command             (Command (Connect), parseCommand)
 import qualified Control.Concurrent  as Concurrent
 import qualified Control.Exception   as Exception
 import qualified Control.Monad       as Monad
@@ -8,48 +10,56 @@ import qualified Control.Monad.Loops as Loops
 import qualified Data.Map            as Map
 import qualified Data.Text           as Text
 import qualified Network.WebSockets  as WS
-import qualified Types               as T
+import           User                (User (User), UserId, UserName, conn,
+                                      userId, userName)
 
-disconnectClient :: WS.Connection -> Concurrent.MVar T.App -> T.UserId -> IO ()
+broadcast :: Concurrent.MVar App -> Text.Text -> IO ()
+broadcast state msg = do
+    s <- Concurrent.readMVar state
+    let users = getUsers s
+    Monad.forM_ users $ \c ->
+        WS.sendTextData (conn c) msg
+
+disconnectClient :: WS.Connection -> Concurrent.MVar App -> UserId -> IO ()
 disconnectClient conn state uid = Concurrent.modifyMVar state $ \s -> do
-    let newState = T.removeUser s uid
+    let newState = removeUser s uid
     -- TODO: send stuff, destroy other stuff
     return (newState, ())
 
 
-nextId :: Map.Map T.UserId T.User -> T.UserId
+nextId :: Map.Map UserId User -> UserId
 nextId = Map.foldrWithKey (\k _ b -> max (1 + k) b) 0
 
 
-connectClient :: T.UserName -> Concurrent.MVar T.App -> IO T.UserId
-connectClient uname state = Concurrent.modifyMVar state $ \s -> do
-    let usrs = T.getUsers s
+connectClient :: UserName -> WS.Connection -> Concurrent.MVar App -> IO UserId
+connectClient uname conn state = Concurrent.modifyMVar state $ \s -> do
+    let usrs = getUsers s
         uid = nextId usrs
-        newState = T.addUser s T.User { T.userName=uname, T.userId=uid }
+        newState = addUser s User { userName=uname, userId=uid, conn=conn }
     return (newState, uid)
 
 
-handleRequests :: WS.Connection -> Concurrent.MVar T.App -> IO a
+handleRequests :: WS.Connection -> Concurrent.MVar App -> IO a
 handleRequests conn state = Monad.forever $ do
     msg :: Text.Text <- WS.receiveData conn
     -- TODO: Parse command, update state, send stuff
-    WS.sendTextData conn msg
+    broadcast state msg
 
 
-getUserName :: WS.Connection -> IO T.UserName
+getUserName :: WS.Connection -> IO UserName
 getUserName conn = Loops.untilJust $ do
     msg :: Text.Text <- WS.receiveData conn
-    case T.parseCommand msg of
-        Just (T.Connect uname) -> return $ Just uname
-        _                      -> return Nothing
+    case parseCommand msg of
+        Just (Connect uname) -> return $ Just uname
+        _                    -> return Nothing
 
 
-wsApp :: Concurrent.MVar T.App -> WS.ServerApp
+wsApp :: Concurrent.MVar App -> WS.ServerApp
 wsApp state pending = do
     conn <- WS.acceptRequest pending
     WS.forkPingThread conn 30
     uname <- getUserName conn
-    uid <- connectClient uname state
+    uid <- connectClient uname conn state
     Exception.finally
         (handleRequests conn state)
         (disconnectClient conn state uid)

@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module HttpApp (httpApp) where
 
-import           Network.Wai.Middleware.Static
+import           Network.Wai.Middleware.Static (addBase, noDots, staticPolicy,
+                                                (>->))
 import qualified Web.Scotty                    as S
 
 httpApp :: S.ScottyM ()

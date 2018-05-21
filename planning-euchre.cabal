@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     HttpApp, WsApp, Types
+  exposed-modules:     App, Card, Command, Deck, HttpApp, Room, Story, User, WsApp
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , bytestring

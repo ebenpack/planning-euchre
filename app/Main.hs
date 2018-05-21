@@ -1,11 +1,11 @@
 module Main where
 
+import           App                            (newApp)
 import qualified Control.Concurrent             as Concurrent
 import           HttpApp                        (httpApp)
 import qualified Network.Wai.Handler.Warp       as Warp
 import qualified Network.Wai.Handler.WebSockets as WS
 import qualified Network.WebSockets             as WS
-import           Types
 import           Web.Scotty                     (scottyApp)
 import           WsApp                          (wsApp)
 
