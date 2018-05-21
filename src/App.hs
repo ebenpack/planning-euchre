@@ -41,8 +41,9 @@ getUser s uid = s ^. (_appUsers . at uid)
 addUser :: App -> User -> App
 addUser s user = s & (_appUsers . at (user ^. _userId)) ?~ user
 
-removeUser :: App -> UserId -> App
-removeUser s uid = s & (_appUsers %~ sans uid)
+removeUser :: App -> User -> App
+removeUser s usr = let uid = usr ^. _userId  in
+    s & (_appUsers %~ sans uid)
 
 addRoom :: App -> Room -> App
 addRoom s room = s & (_appRooms . at (room ^. _roomId)) ?~ room
