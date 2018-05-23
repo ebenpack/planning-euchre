@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     App, Card, Command, Deck, HttpApp, Room, Story, User, WsApp
+  exposed-modules:     App, Card, Command, Deck, HttpApp, JSON, Room, Story, User, WsApp
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , bytestring
@@ -39,6 +39,7 @@ executable planning-euchre-exe
   main-is:             Main.hs
   ghc-options:         -threaded -O2 -rtsopts -with-rtsopts=-N
   build-depends:       base
+                     , containers
                      , planning-euchre
                      , scotty
                      , wai-websockets

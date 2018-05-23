@@ -1,4 +1,7 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Card(Card(..)) where
+
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 
 data Card =
     Coffee
@@ -29,3 +32,6 @@ instance Show Card where
   show OneHundred = "100"
   show Unknown    = "?"
   show Infinity   = "∞"
+
+deriveJSON defaultOptions ''Card
+

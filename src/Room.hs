@@ -3,11 +3,11 @@ module Room(
       RoomId
     , RoomName
     , Room
-    , _roomName
-    , _roomUsers
-    , _roomStory
-    , _roomDeck
-    , _roomPrivate
+    , _name
+    , _users
+    , _story
+    , _deck
+    , _private
     , _roomId
     , roomId
     , name
@@ -17,29 +17,27 @@ module Room(
     , deck
     , private) where
 
-import           Control.Lens (makeLensesFor)
-import qualified Data.Map     as Map
-import           Deck         (Deck)
-import           Story        (Story)
-import           User         (User, UserId)
+import           Control.Lens  (makeLenses)
+import           Data.Aeson.TH (deriveJSON)
+import qualified Data.Map      as Map
+import           Deck          (Deck)
+import           JSON          (jsonOptions)
+import           Story         (Story)
+import           User          (User, UserId)
+
 
 type RoomId = Int
 
 type RoomName = String
 
-data Room = Room { roomId  :: RoomId
-                 , name    :: RoomName
-                 , owner   :: UserId
-                 , users   :: Map.Map UserId User
-                 , story   :: Story
-                 , deck    :: Deck
-                 , private :: Bool } deriving (Show)
+data Room = Room { _roomId  :: RoomId
+                 , _name    :: RoomName
+                 , _owner   :: UserId
+                 , _users   :: Map.Map UserId User
+                 , _story   :: Story
+                 , _deck    :: Deck
+                 , _private :: Bool } deriving (Show)
 
-makeLensesFor [
-      ("name", "_roomName")
-    , ("users", "_roomUsers")
-    , ("story", "_roomStory")
-    , ("deck", "_roomDeck")
-    , ("private", "_roomPrivate")
-    , ("roomId", "_roomId")
-    ] ''Room
+makeLenses ''Room
+
+deriveJSON jsonOptions ''Room

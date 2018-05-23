@@ -4,49 +4,27 @@ module App(
     , Users
     , App
     , newApp
-    , _appRooms
-    , _appUsers
-    , getUsers
-    , getUser
-    , addUser
-    , removeUser
-    , addRoom
-    , removeRoom) where
+    , rooms
+    , users
+    , _rooms
+    , _users) where
 
-import           Control.Lens (at, makeLensesFor, sans, (%~), (&), (?~), (^.))
-import qualified Data.Map     as Map
-import           Room         (Room, RoomId, _roomId)
-import           User         (User, UserId, _userId)
+import           Control.Lens  (makeLenses)
+import           Data.Aeson.TH (deriveJSON)
+import qualified Data.Map      as Map
+import           JSON          (jsonOptions)
+import           Room          (Room, RoomId)
+import           User          (User, UserId)
 
 type Rooms = Map.Map RoomId Room
 
 type Users = Map.Map UserId User
 
-data App = App { rooms  :: Rooms
-                , users :: Users } deriving (Show)
+data App = App { _rooms :: Rooms
+               , _users :: Users } deriving (Show)
 
 newApp :: App
-newApp = App { rooms = Map.empty, users = Map.empty }
+newApp = App { _rooms = Map.empty, _users = Map.empty }
 
-makeLensesFor [("rooms", "_appRooms"), ("users", "_appUsers")] ''App
-
--- TODO: Sort out where to put lenses
-
-getUsers :: App -> Users
-getUsers s = s ^. _appUsers
-
-getUser :: App -> UserId -> Maybe User
-getUser s uid = s ^. (_appUsers . at uid)
-
-addUser :: App -> User -> App
-addUser s user = s & (_appUsers . at (user ^. _userId)) ?~ user
-
-removeUser :: App -> User -> App
-removeUser s usr = let uid = usr ^. _userId  in
-    s & (_appUsers %~ sans uid)
-
-addRoom :: App -> Room -> App
-addRoom s room = s & (_appRooms . at (room ^. _roomId)) ?~ room
-
-removeRoom :: App -> RoomId -> App
-removeRoom s rid = s & (_appRooms %~ sans rid)
+makeLenses ''App
+deriveJSON jsonOptions ''App

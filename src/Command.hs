@@ -18,7 +18,7 @@ data Command =
   | Disconnect
   | NewStory
 
--- TODO: Write explicit ToJSON/FromJSON instances
+-- TODO: Write explicit ToJSON/FromJSON instances(?)
 deriveJSON defaultOptions ''Command
 
 parseCommand :: Text.Text -> Maybe Command
