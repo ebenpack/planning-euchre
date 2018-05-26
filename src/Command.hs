@@ -18,6 +18,7 @@ import           User                 (UserId, UserName)
 data Command =
     CreateRoom RoomName Story Deck Private
   | DestroyRoom RoomId
+  | RoomDestroyed RoomId
   | JoinRoom RoomId
   | Connect UserName
   | Connected UserId
