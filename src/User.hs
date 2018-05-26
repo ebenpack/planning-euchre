@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 module User (
@@ -9,25 +10,25 @@ module User (
     , userId
     , userName) where
 
-import           Control.Lens  (makeLenses)
-import           Data.Aeson.TH (deriveJSON)
-import qualified Data.Text     as Text
-import           JSON          (jsonOptions)
+import           Control.Lens (makeLenses)
+import           Data.Aeson   (FromJSON (parseJSON), ToJSON (toEncoding),
+                               genericParseJSON, genericToEncoding)
+import qualified Data.Text    as Text
+import           GHC.Generics (Generic)
+import           JSON         (jsonOptions)
 
 type UserName = Text.Text
 
 type UserId = Int
 
 data User = User { _userId   :: UserId
-                 , _userName :: UserName }
+                 , _userName :: UserName } deriving (Show, Generic)
 
-instance Show User where
-    show usr = "User { userId=\""
-        ++ (show $ _userId usr)
-        ++ "\", userName=\""
-        ++ (show $ _userName usr)
-        ++ "\" }"
 
 makeLenses ''User
 
-deriveJSON jsonOptions ''User
+instance ToJSON User where
+    toEncoding = genericToEncoding jsonOptions
+
+instance FromJSON User where
+    parseJSON = genericParseJSON jsonOptions

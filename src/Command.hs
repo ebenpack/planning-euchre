@@ -1,25 +1,36 @@
+{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Command(Command(..), parseCommand) where
 
-import           Data.Aeson           (decode)
-import           Data.Aeson.TH        (defaultOptions, deriveJSON)
+import           Card                 (Card)
+import           Data.Aeson           (FromJSON, ToJSON (toEncoding), decode,
+                                       defaultOptions, genericToEncoding)
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Text            as Text
 import           Data.Text.Encoding   (encodeUtf8)
-import           Room                 (RoomId)
+import           Deck                 (Deck)
+import           GHC.Generics         (Generic)
+import           Room                 (Private, RoomId, RoomName)
+import           Story                (Story)
 import           User                 (UserId, UserName)
 
 
 data Command =
-    CreateRoom
+    CreateRoom RoomName Story Deck Private
+  | DestroyRoom RoomId
   | JoinRoom RoomId
   | Connect UserName
   | Connected UserId
   | Disconnect
+  | Disconnected UserId
   | NewStory
+  | Vote Card deriving (Generic) -- TODO: better name? estimate?
 
 -- TODO: Write explicit ToJSON/FromJSON instances(?)
-deriveJSON defaultOptions ''Command
+instance ToJSON Command where
+    toEncoding = genericToEncoding defaultOptions
+
+instance FromJSON Command
 
 parseCommand :: Text.Text -> Maybe Command
 parseCommand = decode . fromStrict . encodeUtf8

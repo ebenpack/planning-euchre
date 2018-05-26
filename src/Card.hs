@@ -1,7 +1,10 @@
+{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Card(Card(..)) where
 
-import           Data.Aeson.TH (defaultOptions, deriveJSON)
+import           Data.Aeson   (FromJSON, ToJSON (toEncoding), defaultOptions,
+                               genericToEncoding)
+import           GHC.Generics (Generic)
 
 data Card =
     Coffee
@@ -16,7 +19,7 @@ data Card =
   | Forty
   | OneHundred
   | Unknown
-  | Infinity
+  | Infinity deriving (Generic)
 
 instance Show Card where
   show Coffee     = "☕"
@@ -33,5 +36,8 @@ instance Show Card where
   show Unknown    = "?"
   show Infinity   = "∞"
 
-deriveJSON defaultOptions ''Card
+instance ToJSON Card where
+    toEncoding = genericToEncoding defaultOptions
+
+instance FromJSON Card
 

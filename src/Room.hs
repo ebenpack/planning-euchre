@@ -1,43 +1,55 @@
+{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Room(
       RoomId
     , RoomName
-    , Room
-    , _name
-    , _users
-    , _story
-    , _deck
-    , _private
-    , _roomId
+    , Private
+    , Room(
+          Room
+        , _roomId
+        , _roomName
+        , _roomOwner
+        , _roomUsers
+        , _roomStory
+        , _roomDeck
+        , _roomPrivate
+    )
     , roomId
-    , name
-    , owner
-    , users
-    , story
-    , deck
-    , private) where
+    , roomName
+    , roomOwner
+    , roomUsers
+    , roomStory
+    , roomDeck
+    , roomPrivate) where
 
-import           Control.Lens  (makeLenses)
-import           Data.Aeson.TH (deriveJSON)
-import qualified Data.Map      as Map
-import           Deck          (Deck)
-import           JSON          (jsonOptions)
-import           Story         (Story)
-import           User          (User, UserId)
+import           Control.Lens (makeLenses)
+import           Data.Aeson   (FromJSON (parseJSON), ToJSON (toEncoding),
+                               genericParseJSON, genericToEncoding)
+import qualified Data.Map     as Map
+import           Deck         (Deck)
+import           GHC.Generics (Generic)
+import           JSON         (jsonOptions)
+import           Story        (Story)
+import           User         (User, UserId)
 
+type Private = Bool
 
 type RoomId = Int
 
 type RoomName = String
 
-data Room = Room { _roomId  :: RoomId
-                 , _name    :: RoomName
-                 , _owner   :: UserId
-                 , _users   :: Map.Map UserId User
-                 , _story   :: Story
-                 , _deck    :: Deck
-                 , _private :: Bool } deriving (Show)
+data Room = Room { _roomId      :: RoomId
+                 , _roomName    :: RoomName
+                 , _roomOwner   :: UserId
+                 , _roomUsers   :: Map.Map UserId User
+                 , _roomStory   :: Story
+                 , _roomDeck    :: Deck
+                 , _roomPrivate :: Private } deriving (Show, Generic)
 
 makeLenses ''Room
 
-deriveJSON jsonOptions ''Room
+instance ToJSON Room where
+    toEncoding = genericToEncoding jsonOptions
+
+instance FromJSON Room where
+    parseJSON = genericParseJSON jsonOptions

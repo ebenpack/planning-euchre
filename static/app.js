@@ -5,10 +5,10 @@ function webSocketTest(name) {
     };
     ws.onmessage = evt => {
         var m = evt.data;
-        log.textContent += (m + '\n');
+        log.textContent = m;
     };
     ws.onclose = function () {
-        log.textContent += ("ws closed" + "\n");
+        log.textContent = ("ws closed" + "\n");
     };
     window.onbeforeunload = evt => {
         socket.close();
@@ -22,11 +22,9 @@ const log = document.getElementById("log");
 let ws;
 connect.addEventListener('click', evt => {
     const name = input.value;
-    input.value = "";
     ws = webSocketTest(name);
 });
 submit.addEventListener('click', evt => {
     const data = input.value;
-    input.value = "";
     ws.send(data);
 })
