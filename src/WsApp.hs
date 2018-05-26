@@ -5,7 +5,7 @@ module WsApp (wsApp, State(State), _app, _userState) where
 
 import qualified App                    as A (App, Users, rooms, users)
 import           Card                   (Card (Three))
-import           Command                (Command (Connect, Connected, CreateRoom, DestroyRoom, Disconnect, Disconnected, JoinRoom, NewStory, Vote),
+import           Command                (Command (Connect, Connected, CreateRoom, DestroyRoom, Disconnect, Disconnected, JoinRoom, NewStory, RoomDestroyed, Vote),
                                          parseCommand)
 import qualified Control.Concurrent     as Concurrent
 import qualified Control.Exception      as Exception
@@ -48,17 +48,15 @@ broadcast s users msg = do
                 Just conn' -> WS.sendTextData conn' msg
                 _          -> return ()
 
-broadcastApp :: Concurrent.MVar State -> ByteString -> IO ()
+broadcastApp :: State -> ByteString -> IO ()
 broadcastApp state msg = do
-    s <- Concurrent.readMVar state
-    let appUsers = s ^. app . A.users
-    broadcast s appUsers msg
+    let appUsers = state ^. app . A.users
+    broadcast state appUsers msg
 
-broadcastRoom :: RoomId -> Concurrent.MVar State -> ByteString -> IO ()
+broadcastRoom :: RoomId -> State -> ByteString -> IO ()
 broadcastRoom rid state msg = do
-    s <- Concurrent.readMVar state
-    let roomUsers = s ^. app . A.users
-    broadcast s roomUsers msg
+    let roomUsers = state ^. app . A.users
+    broadcast state roomUsers msg
 
 disconnectClient :: WS.Connection -> Concurrent.MVar State -> User -> IO ()
 disconnectClient conn state usr = Concurrent.modifyMVar_ state $ \s -> do
@@ -73,10 +71,7 @@ disconnectClient conn state usr = Concurrent.modifyMVar_ state $ \s -> do
 
 
 nextId :: Integral a => Map.Map a b -> a
-nextId m = if mn > 0 then mn - 1 else (mx + 1)
-    where (mn, mx) = Map.foldrWithKey minmax  (0,0) m
-          minmax k _ b = (max k (fst b), min k (snd b))
-
+nextId m = head $ dropWhile (`Map.member` m) [1..]
 
 connectClient :: UserName -> WS.Connection -> Concurrent.MVar State -> IO User
 connectClient uname conn state = Concurrent.modifyMVar state $ \s -> do
@@ -96,9 +91,8 @@ destroyRoom rid conn state usr = Concurrent.modifyMVar_ state $ \s -> do
         userOwnsRoom = case rmOwner of
             Just rmOwnerId -> rmOwnerId == uid
             Nothing        -> False
-        msg = encode $ DestroyRoom rid
-
-    Monad.when userOwnsRoom $ broadcastRoom rid state msg
+        msg = encode $ RoomDestroyed rid
+    Monad.when userOwnsRoom $ broadcastRoom rid s msg
     return $ if userOwnsRoom then
         s
             & (userState . traverse . rooms) %~ sans rid
@@ -133,13 +127,15 @@ createRoom rname stry dck prvt conn state usr = Concurrent.modifyMVar_ state $ \
             s
 
 
-printState conn state usr = Concurrent.modifyMVar_ state $ \s -> do
-    broadcastApp state $ encode $ s ^. app
-    return s
+printState conn state usr = do
+        s <- Concurrent.readMVar state
+        broadcastApp s $ encode $ s ^. app
+        return ()
 
 handleCommand :: Command -> WS.Connection -> Concurrent.MVar State -> User -> IO ()
 handleCommand cmd = case cmd of
         CreateRoom rname stry dck prvt -> createRoom rname stry dck prvt
+        DestroyRoom rid                -> destroyRoom rid
         _                              -> printState
 
 
@@ -150,8 +146,7 @@ handleRequests conn state usr = Monad.forever $ do
     case parseCommand msg of
         Just c  -> handleCommand c conn state usr
         Nothing -> return ()
-    s <- Concurrent.readMVar state
-    broadcastApp state $ encode $ s ^. app
+    printState conn state usr
 
 
 getUserName :: WS.Connection -> IO UserName
