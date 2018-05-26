@@ -3,43 +3,44 @@
 {-# LANGUAGE TemplateHaskell     #-}
 module WsApp (wsApp, State(State), _app, _userState) where
 
-import qualified App                  as A (App, rooms, users)
-import           Card                 (Card (Three))
-import           Command              (Command (Connect, Connected, CreateRoom, DestroyRoom, Disconnect, Disconnected, JoinRoom, NewStory, Vote),
-                                       parseCommand)
-import qualified Control.Concurrent   as Concurrent
-import qualified Control.Exception    as Exception
-import           Control.Lens         (at, makeLenses, sans, (%~), (&), (?~),
-                                       (^.), (^?), _Just)
-import qualified Control.Monad        as Monad
-import qualified Control.Monad.Loops  as Loops
-import           Data.Aeson.Encode    (encode)
-import           Data.ByteString.Lazy (ByteString)
-import qualified Data.Map             as Map
-import qualified Data.Text            as Text
-import qualified Data.Text.Encoding   (decodeUtf8)
-import           Deck                 (Deck (Deck))
-import qualified Network.WebSockets   as WS
-import           Room                 (Private, Room (Room), RoomId, RoomName,
-                                       _roomDeck, _roomId, _roomName,
-                                       _roomOwner, _roomPrivate, _roomStory,
-                                       _roomUsers)
-import           Story                (Story)
-import           User                 (User (User), UserId, UserName, userId,
-                                       _userId, _userName)
+import qualified App                    as A (App, Users, rooms, users)
+import           Card                   (Card (Three))
+import           Command                (Command (Connect, Connected, CreateRoom, DestroyRoom, Disconnect, Disconnected, JoinRoom, NewStory, Vote),
+                                         parseCommand)
+import qualified Control.Concurrent     as Concurrent
+import qualified Control.Exception      as Exception
+import           Control.Lens           (anyOf, at, has, makeLenses, sans, (%~),
+                                         (&), (?~), (^.), (^?), _Just)
+import           Control.Lens.Fold      (folded)
+import           Control.Lens.Traversal (traverse)
+import qualified Control.Monad          as Monad
+import qualified Control.Monad.Loops    as Loops
+import           Data.Aeson.Encode      (encode)
+import           Data.ByteString.Lazy   (ByteString)
+import qualified Data.Map               as Map
+import qualified Data.Set               as Set
+import qualified Data.Text              as Text
+import qualified Data.Text.Encoding     (decodeUtf8)
+import           Deck                   (Deck (Deck))
+import qualified Network.WebSockets     as WS
+import           Room                   (Private, Room (Room), RoomId, RoomName,
+                                         roomOwner, roomUsers, _roomDeck,
+                                         _roomId, _roomName, _roomOwner,
+                                         _roomPrivate, _roomStory, _roomUsers)
+import           Story                  (Story)
+import           User                   (User (User), UserId, UserName, userId,
+                                         _userId, _userName)
 
 data UserState = UserState { _connection :: WS.Connection
-                           , _rooms      :: [RoomId]}
+                           , _rooms      :: Set.Set RoomId}
 data State = State { _app :: A.App, _userState :: Map.Map UserId UserState }
 
 makeLenses ''UserState
 makeLenses ''State
 
-broadcast :: Concurrent.MVar State -> ByteString -> IO ()
-broadcast state msg = do
-    s <- Concurrent.readMVar state
-    let appUsers = s ^. app . A.users
-    Monad.forM_ appUsers $ \u ->
+broadcast :: State -> A.Users -> ByteString -> IO ()
+broadcast s users msg = do
+    Monad.forM_ users $ \u ->
         let uid = u ^. userId
             conn = s ^? userState . at uid . _Just . connection
         in
@@ -47,10 +48,23 @@ broadcast state msg = do
                 Just conn' -> WS.sendTextData conn' msg
                 _          -> return ()
 
+broadcastApp :: Concurrent.MVar State -> ByteString -> IO ()
+broadcastApp state msg = do
+    s <- Concurrent.readMVar state
+    let appUsers = s ^. app . A.users
+    broadcast s appUsers msg
+
+broadcastRoom :: RoomId -> Concurrent.MVar State -> ByteString -> IO ()
+broadcastRoom rid state msg = do
+    s <- Concurrent.readMVar state
+    let roomUsers = s ^. app . A.users
+    broadcast s roomUsers msg
+
 disconnectClient :: WS.Connection -> Concurrent.MVar State -> User -> IO ()
 disconnectClient conn state usr = Concurrent.modifyMVar_ state $ \s -> do
     let uid = usr ^. userId
         rms = s ^. userState . at uid . _Just . rooms
+        -- TODO: traversal?
         newState = foldr (\r s' -> s' & app . A.rooms %~ sans r) s rms
             & app . A.users %~ sans uid
             & userState %~ sans uid
@@ -71,34 +85,56 @@ connectClient uname conn state = Concurrent.modifyMVar state $ \s -> do
         usr = User { _userName=uname, _userId=uid }
         newState = s
             & app . A.users . at uid ?~ usr
-            & userState . at uid ?~ UserState {_connection=conn, _rooms=[]}
+            & userState . at uid ?~ UserState {_connection=conn, _rooms=Set.empty}
     return (newState, usr)
 
 
+destroyRoom :: RoomId -> WS.Connection -> Concurrent.MVar State -> User -> IO ()
+destroyRoom rid conn state usr = Concurrent.modifyMVar_ state $ \s -> do
+    let uid = usr ^. userId
+        rmOwner = s ^? app . A.rooms . at rid . _Just . roomOwner
+        userOwnsRoom = case rmOwner of
+            Just rmOwnerId -> rmOwnerId == uid
+            Nothing        -> False
+        msg = encode $ DestroyRoom rid
+
+    Monad.when userOwnsRoom $ broadcastRoom rid state msg
+    return $ if userOwnsRoom then
+        s
+            & (userState . traverse . rooms) %~ sans rid
+            & app . A.rooms %~ sans rid
+    else
+        s
+
 createRoom :: RoomName -> Story -> Deck -> Private -> WS.Connection -> Concurrent.MVar State -> User -> IO ()
 createRoom rname stry dck prvt conn state usr = Concurrent.modifyMVar_ state $ \s -> do
-    -- check if user already in another room? already owns a room?
-    let uid = usr ^. userId
-        rms = s ^. app . A.rooms
-        rid = nextId rms
-        room = Room {
-              _roomId=rid
-            , _roomName=rname
-            , _roomOwner=uid
-            , _roomUsers=Map.empty
-            , _roomStory=stry
-            , _roomDeck=dck
-            , _roomPrivate=prvt
-        }
-        newState = s
-            & userState . at uid . _Just . rooms %~ (++[rid])
-            & app . A.rooms . at uid ?~ room
-    print $ show uid
-    return newState
+    let rms = s ^. app . A.rooms
+        uid = usr ^. userId
+        userInRoom = s & anyOf (app . A.rooms . folded . roomUsers) (\u -> case u ^. at uid of
+            Just _ -> True
+            _      -> False)
+    return $
+        if not userInRoom then
+            let rid = nextId rms
+                room = Room {
+                    _roomId=rid
+                    , _roomName=rname
+                    , _roomOwner=uid
+                    , _roomUsers=Map.singleton uid usr
+                    , _roomStory=stry
+                    , _roomDeck=dck
+                    , _roomPrivate=prvt
+                }
+            in
+                s
+                    & userState . at uid . _Just . rooms %~ (Set.insert rid)
+                    & app . A.rooms . at rid ?~ room
+        else
+            s
 
 
 printState conn state usr = Concurrent.modifyMVar_ state $ \s -> do
-    broadcast state $ encode $ s ^. app
+    broadcastApp state $ encode $ s ^. app
     return s
 
 handleCommand :: Command -> WS.Connection -> Concurrent.MVar State -> User -> IO ()
@@ -115,7 +151,7 @@ handleRequests conn state usr = Monad.forever $ do
         Just c  -> handleCommand c conn state usr
         Nothing -> return ()
     s <- Concurrent.readMVar state
-    broadcast state $ encode $ s ^. app
+    broadcastApp state $ encode $ s ^. app
 
 
 getUserName :: WS.Connection -> IO UserName
