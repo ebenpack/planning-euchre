@@ -6,11 +6,90 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Planning Poker</title>
 </head>
+<style>
+    div {border-bottom: 1px dashed gray; margin: 20px;}
+</style>
 <body>
-    <input type="text" id="input">
-    <button id="submit">Send</button>
-    <button id="connect">Connect</button>
+    <div>
+        <button id="connect">Connect</button>
+        <input type="text" id="connect-name">
+    </div>
+    <div>
+        <button id="create">Create Room</button>
+        <input type="text" id="create-name">        
+    </div>
+    <div>
+        <button id="join">Join Room</button>
+        <input type="text" id="join-rid">
+    </div>
+    <div>
+        <button id="destroy">Destroy Room</button>
+        <input type="text" id="destroy-rid">
+    </div>
     <pre id="log"></pre>
-    <script src="/app.js"></script>
+    <script>
+        const connect = document.getElementById("connect");
+        const connectName = document.getElementById("connect-name");
+
+        const create = document.getElementById("create");
+        const createName = document.getElementById("create-name");
+
+        const join = document.getElementById("join");
+        const joinRid = document.getElementById("join-rid");
+
+        const destroy = document.getElementById("destroy");
+        const destroyRid = document.getElementById("destroy-rid");
+
+
+        const log = document.getElementById("log");
+        
+        let connectHandler = evt => {
+            const name = connectName.value;
+            ws = webSock(name);
+            connect.removeEventListener('click', connectHandler);
+        };
+        connect.addEventListener('click', connectHandler);
+        function webSock(name) {
+            var ws = new WebSocket("ws://localhost:3000");
+            ws.onopen = evt => ws.send(JSON.stringify({"tag":"Connect","contents":name}));
+            ws.onmessage = evt => {
+                var m = evt.data;
+                log.textContent = JSON.stringify(JSON.parse(m), null, 4);
+            };
+            ws.onclose = function () {
+                log.textContent = ("ws closed" + "\n");
+            };
+            window.onbeforeunload = evt => {
+                socket.close();
+            };
+            create.addEventListener('click', evt => {
+                ws.send(JSON.stringify({
+                    tag: "CreateRoom",
+                    contents:[createName.value, "STORY", ["Infinity", "Coffee", "Unknown"], false]
+                }));
+            });
+            join.addEventListener('click', evt => {
+                ws.send(JSON.stringify({
+                    tag: "JoinRoom",
+                    contents:parseInt(joinRid.value, 10)
+                }));
+            });
+            destroy.addEventListener('click', evt => {
+                ws.send(JSON.stringify({
+                    tag: "DestroyRoom",
+                    contents:parseInt(destroyRid.value, 10)
+                }));
+            })
+        }
+        // {"tag":"Connect","contents":"foobar"}
+        // {"tag":"CreateRoom","contents":["baz","QUX",["Infinity", "Coffee", "Unknown"],false]}
+        // {"tag":"DestroyRoom","contents":30}
+        // {"tag":"JoinRoom","contents":23}
+        // {"tag":"Connected","contents":23}
+        // {"tag":"Disconnect"}
+        // {"tag":"Disconnected","contents":232}
+        // {"tag":"NewStory"}
+        // {"tag":"Vote","contents":"Three"}
+    </script>
 </body>
 </html>
