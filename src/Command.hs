@@ -12,7 +12,7 @@ import           Deck                 (Deck)
 import           GHC.Generics         (Generic)
 import           Room                 (Private, RoomId, RoomName)
 import           Story                (Story)
-import           User                 (UserId, UserName)
+import           User                 (User, UserId, UserName)
 
 
 data Command =
@@ -20,6 +20,9 @@ data Command =
   | DestroyRoom RoomId
   | RoomDestroyed RoomId
   | JoinRoom RoomId
+  | LeaveRoom RoomId
+  | RoomJoined RoomId User
+  | RoomLeft RoomId User
   | Connect UserName
   | Connected UserId
   | Disconnect

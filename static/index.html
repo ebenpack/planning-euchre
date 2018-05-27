@@ -23,6 +23,10 @@
         <input type="text" id="join-rid">
     </div>
     <div>
+        <button id="leave">Leave Room</button>
+        <input type="text" id="leave-rid">
+    </div>
+    <div>
         <button id="destroy">Destroy Room</button>
         <input type="text" id="destroy-rid">
     </div>
@@ -36,6 +40,9 @@
 
         const join = document.getElementById("join");
         const joinRid = document.getElementById("join-rid");
+
+        const leave = document.getElementById("leave");
+        const leaveRid = document.getElementById("leave-rid");
 
         const destroy = document.getElementById("destroy");
         const destroyRid = document.getElementById("destroy-rid");
@@ -72,6 +79,12 @@
                 ws.send(JSON.stringify({
                     tag: "JoinRoom",
                     contents:parseInt(joinRid.value, 10)
+                }));
+            });
+            leave.addEventListener('click', evt => {
+                ws.send(JSON.stringify({
+                    tag: "LeaveRoom",
+                    contents:parseInt(leaveRid.value, 10)
                 }));
             });
             destroy.addEventListener('click', evt => {
