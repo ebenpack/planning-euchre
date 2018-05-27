@@ -54,10 +54,10 @@
             ws.onopen = evt => ws.send(JSON.stringify({"tag":"Connect","contents":name}));
             ws.onmessage = evt => {
                 var m = evt.data;
-                log.textContent = JSON.stringify(JSON.parse(m), null, 4);
+                log.textContent = JSON.stringify(JSON.parse(m), null, 4) + "\n\n" + log.textContent ;
             };
             ws.onclose = function () {
-                log.textContent = ("ws closed" + "\n");
+                log.textContent += ("ws closed" + "\n");
             };
             window.onbeforeunload = evt => {
                 socket.close();

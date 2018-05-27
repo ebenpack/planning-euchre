@@ -4,29 +4,30 @@
 module WsApp (wsApp, State(State), _app, _userState) where
 
 import qualified App                    as A (App, Users, rooms, users)
-import           Card                   (Card (Three))
 import           Command                (Command (Connect, Connected, CreateRoom, DestroyRoom, Disconnect, Disconnected, JoinRoom, NewStory, RoomDestroyed, Vote),
                                          parseCommand)
 import qualified Control.Concurrent     as Concurrent
 import qualified Control.Exception      as Exception
-import           Control.Lens           (anyOf, at, has, makeLenses, sans, (%~),
-                                         (&), (?~), (^.), (^?), _Just)
-import           Control.Lens.Fold      (folded)
+import           Control.Lens           (anyOf, at, makeLenses, sans, (%~), (&),
+                                         (.~), (?~), (^.), (^?), _Just)
+import           Control.Lens.Fold      (filtered, folded, (^..))
+import           Control.Lens.Prism     (only)
 import           Control.Lens.Traversal (traverse)
 import qualified Control.Monad          as Monad
 import qualified Control.Monad.Loops    as Loops
-import           Data.Aeson.Encode      (encode)
+import           Data.Aeson             (encode)
 import           Data.ByteString.Lazy   (ByteString)
 import qualified Data.Map               as Map
 import qualified Data.Set               as Set
 import qualified Data.Text              as Text
 import qualified Data.Text.Encoding     (decodeUtf8)
-import           Deck                   (Deck (Deck))
+import           Deck                   (Deck)
 import qualified Network.WebSockets     as WS
 import           Room                   (Private, Room (Room), RoomId, RoomName,
-                                         roomOwner, roomUsers, _roomDeck,
-                                         _roomId, _roomName, _roomOwner,
-                                         _roomPrivate, _roomStory, _roomUsers)
+                                         roomId, roomOwner, roomUsers,
+                                         _roomDeck, _roomId, _roomName,
+                                         _roomOwner, _roomPrivate, _roomStory,
+                                         _roomUsers)
 import           Story                  (Story)
 import           User                   (User (User), UserId, UserName, userId,
                                          _userId, _userName)
@@ -39,8 +40,7 @@ makeLenses ''UserState
 makeLenses ''State
 
 broadcast :: State -> A.Users -> ByteString -> IO ()
-broadcast s users msg = do
-    Monad.forM_ users $ \u ->
+broadcast s users msg = Monad.forM_ users $ \u ->
         let uid = u ^. userId
             conn = s ^? userState . at uid . _Just . connection
         in
@@ -55,26 +55,30 @@ broadcastApp state msg = do
 
 broadcastRoom :: RoomId -> State -> ByteString -> IO ()
 broadcastRoom rid state msg = do
-    let roomUsers = state ^. app . A.users
-    broadcast state roomUsers msg
+    let rmUsers = state ^. app . A.rooms . at rid . _Just . roomUsers
+    broadcast state rmUsers msg
 
-disconnectClient :: WS.Connection -> Concurrent.MVar State -> User -> IO ()
-disconnectClient conn state usr = Concurrent.modifyMVar_ state $ \s -> do
+disconnectClient :: Concurrent.MVar State -> WS.Connection -> User -> IO ()
+disconnectClient state conn usr = Concurrent.modifyMVar_ state $ \s -> do
     let uid = usr ^. userId
-        rms = s ^. userState . at uid . _Just . rooms
-        -- TODO: traversal?
-        newState = foldr (\r s' -> s' & app . A.rooms %~ sans r) s rms
+        rms = s ^. app . A.rooms
+        destroy = Map.filterWithKey (\_ r -> (r ^. roomOwner) == uid) rms
+        newState = s
             & app . A.users %~ sans uid
             & userState %~ sans uid
-    -- TODO: send stuff, destroy other stuff
-    return newState
+    -- TODO: Feels ugly
+    newState' <- Monad.forM (Map.toList destroy) $ \(_, r) -> destroyRoom (r ^. roomId) newState conn usr
+    if null newState' then
+        return newState
+    else
+        return $ last newState'
 
 
 nextId :: Integral a => Map.Map a b -> a
 nextId m = head $ dropWhile (`Map.member` m) [1..]
 
-connectClient :: UserName -> WS.Connection -> Concurrent.MVar State -> IO User
-connectClient uname conn state = Concurrent.modifyMVar state $ \s -> do
+connectClient :: UserName ->  Concurrent.MVar State -> WS.Connection -> IO User
+connectClient uname state conn = Concurrent.modifyMVar state $ \s -> do
     let usrs = s ^. app . A.users
         uid = nextId usrs
         usr = User { _userName=uname, _userId=uid }
@@ -84,8 +88,8 @@ connectClient uname conn state = Concurrent.modifyMVar state $ \s -> do
     return (newState, usr)
 
 
-destroyRoom :: RoomId -> WS.Connection -> Concurrent.MVar State -> User -> IO ()
-destroyRoom rid conn state usr = Concurrent.modifyMVar_ state $ \s -> do
+destroyRoom :: RoomId -> State -> WS.Connection -> User -> IO State
+destroyRoom rid s conn usr = do
     let uid = usr ^. userId
         rmOwner = s ^? app . A.rooms . at rid . _Just . roomOwner
         userOwnsRoom = case rmOwner of
@@ -100,8 +104,8 @@ destroyRoom rid conn state usr = Concurrent.modifyMVar_ state $ \s -> do
     else
         s
 
-createRoom :: RoomName -> Story -> Deck -> Private -> WS.Connection -> Concurrent.MVar State -> User -> IO ()
-createRoom rname stry dck prvt conn state usr = Concurrent.modifyMVar_ state $ \s -> do
+createRoom :: RoomName -> Story -> Deck -> Private -> State -> WS.Connection -> User -> IO State
+createRoom rname stry dck prvt s conn usr = do
     let rms = s ^. app . A.rooms
         uid = usr ^. userId
         userInRoom = s & anyOf (app . A.rooms . folded . roomUsers) (\u -> case u ^. at uid of
@@ -127,26 +131,29 @@ createRoom rname stry dck prvt conn state usr = Concurrent.modifyMVar_ state $ \
             s
 
 
-printState conn state usr = do
-        s <- Concurrent.readMVar state
+-- TODO: REMOVE
+printState :: State -> WS.Connection -> User -> IO State
+printState s conn usr = do
         broadcastApp s $ encode $ s ^. app
-        return ()
+        return s
 
-handleCommand :: Command -> WS.Connection -> Concurrent.MVar State -> User -> IO ()
-handleCommand cmd = case cmd of
-        CreateRoom rname stry dck prvt -> createRoom rname stry dck prvt
-        DestroyRoom rid                -> destroyRoom rid
-        _                              -> printState
+handleCommand :: Command -> Concurrent.MVar State -> WS.Connection -> User -> IO ()
+handleCommand cmd state conn usr = Concurrent.modifyMVar_ state $ \s -> do
+    case cmd of
+        CreateRoom rname stry dck prvt -> createRoom rname stry dck prvt s conn usr
+        DestroyRoom rid                -> destroyRoom rid s conn usr
+        _                              -> printState s conn usr
 
 
-handleRequests :: WS.Connection -> Concurrent.MVar State -> User -> IO a
-handleRequests conn state usr = Monad.forever $ do
+handleRequests :: Concurrent.MVar State -> WS.Connection ->  User -> IO a
+handleRequests state conn usr = Monad.forever $ do
     msg :: Text.Text <- WS.receiveData conn
     -- TODO: Parse command, update state, send stuff
     case parseCommand msg of
-        Just c  -> handleCommand c conn state usr
+        Just c  -> handleCommand c state conn usr
         Nothing -> return ()
-    printState conn state usr
+    s <- Concurrent.readMVar state
+    printState s conn usr
 
 
 getUserName :: WS.Connection -> IO UserName
@@ -162,7 +169,7 @@ wsApp state pending = do
     conn <- WS.acceptRequest pending
     WS.forkPingThread conn 30
     uname <- getUserName conn
-    usr <- connectClient uname conn state
+    usr <- connectClient uname state conn
     Exception.finally
-        (handleRequests conn state usr)
-        (disconnectClient conn state usr)
+        (handleRequests state conn usr)
+        (disconnectClient state conn usr)
