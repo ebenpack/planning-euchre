@@ -3,6 +3,7 @@ dist*
 *.o
 .hsenv*
 .stack-work/
+.stack-work-profile/
 .cabal-sandbox
 cabal.sandbox.config
 .DS_Store
