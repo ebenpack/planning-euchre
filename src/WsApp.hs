@@ -39,6 +39,10 @@ data State = State { _app :: A.App, _userState :: Map.Map UserId UserState }
 makeLenses ''UserState
 makeLenses ''State
 
+nextId :: Integral a => Map.Map a b -> a
+nextId m = head $ dropWhile (`Map.member` m) [1..]
+
+
 broadcast :: State -> A.Users -> ByteString -> IO ()
 broadcast s users msg = Monad.forM_ users $ \u ->
         let uid = u ^. userId
@@ -48,15 +52,18 @@ broadcast s users msg = Monad.forM_ users $ \u ->
                 Just conn' -> WS.sendTextData conn' msg
                 _          -> return ()
 
+
 broadcastApp :: State -> ByteString -> IO ()
 broadcastApp state msg = do
     let appUsers = state ^. app . A.users
     broadcast state appUsers msg
 
+
 broadcastRoom :: RoomId -> State -> ByteString -> IO ()
 broadcastRoom rid state msg = do
     let rmUsers = state ^. app . A.rooms . at rid . _Just . roomUsers
     broadcast state rmUsers msg
+
 
 disconnectClient :: Concurrent.MVar State -> WS.Connection -> User -> IO ()
 disconnectClient state conn usr = Concurrent.modifyMVar_ state $ \s -> do
@@ -69,9 +76,6 @@ disconnectClient state conn usr = Concurrent.modifyMVar_ state $ \s -> do
     newState' <- Monad.forM (Map.toList destroy) $ \(_, r) -> destroyRoom (r ^. roomId) newState conn usr
     return  $ foldl (curry snd) newState newState'
 
-
-nextId :: Integral a => Map.Map a b -> a
-nextId m = head $ dropWhile (`Map.member` m) [1..]
 
 connectClient :: UserName ->  Concurrent.MVar State -> WS.Connection -> IO User
 connectClient uname state conn = Concurrent.modifyMVar state $ \s -> do
@@ -99,6 +103,7 @@ destroyRoom rid s conn usr = do
             & app . A.rooms %~ sans rid
     else
         s
+
 
 createRoom :: RoomName -> Story -> Deck -> Private -> State -> WS.Connection -> User -> IO State
 createRoom rname stry dck prvt s conn usr = do
@@ -132,6 +137,7 @@ printState :: State -> WS.Connection -> User -> IO State
 printState s conn usr = do
         broadcastApp s $ encode $ s ^. app
         return s
+
 
 handleCommand :: Command -> Concurrent.MVar State -> WS.Connection -> User -> IO ()
 handleCommand cmd state conn usr = Concurrent.modifyMVar_ state $ \s ->
