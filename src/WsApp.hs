@@ -4,31 +4,27 @@
 module WsApp (wsApp, State(State), _app, _userState) where
 
 import qualified App                    as A (App, Users, rooms, users)
-import           Command                (Command (Connect, Connected, CreateRoom, DestroyRoom, Disconnect, Disconnected, JoinRoom, LeaveRoom, NewStory, RoomDestroyed, RoomJoined, RoomLeft, Vote),
+import           Command                (Command (Connect, CreateRoom, DestroyRoom, JoinRoom, LeaveRoom, RoomDestroyed, RoomJoined, RoomLeft),
                                          parseCommand)
 import qualified Control.Concurrent     as Concurrent
 import qualified Control.Exception      as Exception
 import           Control.Lens           (anyOf, at, makeLenses, sans, (%~), (&),
                                          (.~), (?~), (^.), (^?), _Just)
-import           Control.Lens.Fold      (filtered, folded, has, (^..))
-import           Control.Lens.Prism     (only)
+import           Control.Lens.Fold      (folded)
 import           Control.Lens.Traversal (traverse)
 import qualified Control.Monad          as Monad
 import qualified Control.Monad.Loops    as Loops
 import           Data.Aeson             (encode)
 import           Data.ByteString.Lazy   (ByteString)
 import qualified Data.Map               as Map
-import           Data.Maybe             (fromMaybe, isJust)
-import qualified Data.Set               as Set
+import           Data.Maybe             (isJust)
 import qualified Data.Text              as Text
-import qualified Data.Text.Encoding     (decodeUtf8)
 import           Deck                   (Deck)
 import qualified Network.WebSockets     as WS
 import           Room                   (Private, Room (Room), RoomId, RoomName,
-                                         roomId, roomOwner, roomUsers,
-                                         _roomDeck, _roomId, _roomName,
-                                         _roomOwner, _roomPrivate, _roomStory,
-                                         _roomUsers)
+                                         roomOwner, roomUsers, _roomDeck,
+                                         _roomId, _roomName, _roomOwner,
+                                         _roomPrivate, _roomStory, _roomUsers)
 import           Story                  (Story)
 import           User                   (User (User), UserId, UserName, userId,
                                          _userId, _userName)
@@ -105,15 +101,12 @@ connectClient uname state conn = Concurrent.modifyMVar state $ \s -> do
 
 
 destroyRoom :: RoomId -> State -> WS.Connection -> User -> IO State
-destroyRoom rid s conn usr = do
+destroyRoom rid s _ usr = do
     let uid = usr ^. userId
-        rmOwner = s ^? app . A.rooms . at rid . _Just . roomOwner
-        userOwnsRoom = case rmOwner of
-            Just rmOwnerId -> rmOwnerId == uid
-            Nothing        -> False
+        ownsRm = s & userOwnsRoom uid rid
         msg = encode $ RoomDestroyed rid
-    Monad.when userOwnsRoom $ broadcastRoom rid s msg
-    return $ if userOwnsRoom then
+    Monad.when ownsRm $ broadcastRoom rid s msg
+    return $ if ownsRm then
         s
             & (userState . traverse . room) .~ Nothing
             & app . A.rooms %~ sans rid
@@ -122,7 +115,7 @@ destroyRoom rid s conn usr = do
 
 
 createRoom :: RoomName -> Story -> Deck -> Private -> State -> WS.Connection -> User -> IO State
-createRoom rname stry dck prvt s conn usr = do
+createRoom rname stry dck prvt s _ usr = do
     let rms = s ^. app . A.rooms
         uid = usr ^. userId
     return $
@@ -145,7 +138,7 @@ createRoom rname stry dck prvt s conn usr = do
             s
 
 joinRoom :: RoomId -> State -> WS.Connection -> User -> IO State
-joinRoom rid s conn usr = do
+joinRoom rid s _ usr = do
     let uid = usr ^. userId
     if not (s & userInRoom uid) then do
         let newState = s
@@ -158,7 +151,7 @@ joinRoom rid s conn usr = do
         return s
 
 leaveRoom :: RoomId -> State -> WS.Connection -> User -> IO State
-leaveRoom rid s conn usr = do
+leaveRoom rid s _ usr = do
     let uid = usr ^. userId
         inRoom = isJust $ s ^? app . A.rooms . at rid . _Just . roomUsers . at uid
     if inRoom then do
@@ -172,7 +165,7 @@ leaveRoom rid s conn usr = do
 
 -- TODO: REMOVE
 printState :: State -> WS.Connection -> User -> IO State
-printState s conn usr = do
+printState s _ _ = do
         broadcastApp s $ encode $ s ^. app
         return s
 

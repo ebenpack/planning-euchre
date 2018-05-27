@@ -1,5 +1,4 @@
-{-# LANGUAGE DeriveGeneric   #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Command(Command(..), parseCommand) where
 
 import           Card                 (Card)
