@@ -66,12 +66,8 @@ disconnectClient state conn usr = Concurrent.modifyMVar_ state $ \s -> do
         newState = s
             & app . A.users %~ sans uid
             & userState %~ sans uid
-    -- TODO: Feels ugly
     newState' <- Monad.forM (Map.toList destroy) $ \(_, r) -> destroyRoom (r ^. roomId) newState conn usr
-    if null newState' then
-        return newState
-    else
-        return $ last newState'
+    return  $ foldl (curry snd) newState newState'
 
 
 nextId :: Integral a => Map.Map a b -> a
@@ -138,7 +134,7 @@ printState s conn usr = do
         return s
 
 handleCommand :: Command -> Concurrent.MVar State -> WS.Connection -> User -> IO ()
-handleCommand cmd state conn usr = Concurrent.modifyMVar_ state $ \s -> do
+handleCommand cmd state conn usr = Concurrent.modifyMVar_ state $ \s ->
     case cmd of
         CreateRoom rname stry dck prvt -> createRoom rname stry dck prvt s conn usr
         DestroyRoom rid                -> destroyRoom rid s conn usr
