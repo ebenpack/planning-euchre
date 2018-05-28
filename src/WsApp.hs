@@ -29,12 +29,15 @@ import           Story                  (Story)
 import           User                   (User (User), UserId, UserName, userId,
                                          _userId, _userName)
 
+
 data UserState = UserState { _connection :: WS.Connection
                            , _room       :: Maybe RoomId}
 data State = State { _app :: A.App, _userState :: Map.Map UserId UserState }
+type CommandHandler = State -> User -> IO State
 
 makeLenses ''UserState
 makeLenses ''State
+
 
 nextId :: Integral a => Map.Map a b -> a
 nextId m = head $ dropWhile (`Map.member` m) [1..]
@@ -68,12 +71,14 @@ userInRoom uid = anyOf (app . A.rooms . folded . roomUsers) (\u -> case u ^. at 
     Just _ -> True
     _      -> False)
 
+
 -- |Predicate function indicating whether a given user owns the room specified
 userOwnsRoom :: UserId -> RoomId -> State -> Bool
 userOwnsRoom uid rid = anyOf (app . A.rooms . at rid . _Just . roomOwner) (== uid)
 
-disconnectClient :: Concurrent.MVar State -> WS.Connection -> User -> IO ()
-disconnectClient state conn usr = Concurrent.modifyMVar_ state $ \s -> do
+
+disconnectClient :: Concurrent.MVar State -> User -> IO ()
+disconnectClient state usr = Concurrent.modifyMVar_ state $ \s -> do
     let uid = usr ^. userId
         rm = s ^? userState . at uid . _Just . room . _Just
         newState = s
@@ -83,9 +88,9 @@ disconnectClient state conn usr = Concurrent.modifyMVar_ state $ \s -> do
     case rm of
         Just rid ->
             if newState & userOwnsRoom uid rid then
-                destroyRoom rid newState conn usr
+                destroyRoom rid newState usr
             else
-                leaveRoom rid newState conn usr
+                leaveRoom rid newState usr
         _        -> return newState
 
 
@@ -100,22 +105,8 @@ connectClient uname state conn = Concurrent.modifyMVar state $ \s -> do
     return (newState, usr)
 
 
-destroyRoom :: RoomId -> State -> WS.Connection -> User -> IO State
-destroyRoom rid s _ usr = do
-    let uid = usr ^. userId
-        ownsRm = s & userOwnsRoom uid rid
-        msg = encode $ RoomDestroyed rid
-    Monad.when ownsRm $ broadcastRoom rid s msg
-    return $ if ownsRm then
-        s
-            & (userState . traverse . room) .~ Nothing
-            & app . A.rooms %~ sans rid
-    else
-        s
-
-
-createRoom :: RoomName -> Story -> Deck -> Private -> State -> WS.Connection -> User -> IO State
-createRoom rname stry dck prvt s _ usr = do
+createRoom :: RoomName -> Story -> Deck -> Private -> CommandHandler
+createRoom rname stry dck prvt s usr = do
     let rms = s ^. app . A.rooms
         uid = usr ^. userId
     return $
@@ -137,8 +128,9 @@ createRoom rname stry dck prvt s _ usr = do
         else
             s
 
-joinRoom :: RoomId -> State -> WS.Connection -> User -> IO State
-joinRoom rid s _ usr = do
+
+joinRoom :: RoomId -> CommandHandler
+joinRoom rid s usr = do
     let uid = usr ^. userId
     if not (s & userInRoom uid) then do
         let newState = s
@@ -150,8 +142,8 @@ joinRoom rid s _ usr = do
     else
         return s
 
-leaveRoom :: RoomId -> State -> WS.Connection -> User -> IO State
-leaveRoom rid s _ usr = do
+leaveRoom :: RoomId -> CommandHandler
+leaveRoom rid s usr = do
     let uid = usr ^. userId
         inRoom = isJust $ s ^? app . A.rooms . at rid . _Just . roomUsers . at uid
     if inRoom then do
@@ -163,32 +155,46 @@ leaveRoom rid s _ usr = do
     else
         return s
 
+
+destroyRoom :: RoomId -> CommandHandler
+destroyRoom rid s usr = do
+    let uid = usr ^. userId
+        ownsRm = s & userOwnsRoom uid rid
+        msg = encode $ RoomDestroyed rid
+    Monad.when ownsRm $ broadcastRoom rid s msg
+    return $ if ownsRm then
+        s
+            & (userState . traverse . room) .~ Nothing
+            & app . A.rooms %~ sans rid
+    else
+        s
+
+
 -- TODO: REMOVE
-printState :: State -> WS.Connection -> User -> IO State
-printState s _ _ = do
+printState :: CommandHandler
+printState s _ = do
         broadcastApp s $ encode $ s ^. app
         return s
 
 
-handleCommand :: Command -> Concurrent.MVar State -> WS.Connection -> User -> IO ()
-handleCommand cmd state conn usr = Concurrent.modifyMVar_ state $ \s ->
+handleCommand :: Command -> Concurrent.MVar State -> User -> IO ()
+handleCommand cmd state usr = Concurrent.modifyMVar_ state $ \s ->
     case cmd of
-        CreateRoom rname stry dck prvt -> createRoom rname stry dck prvt s conn usr
-        DestroyRoom rid                -> destroyRoom rid s conn usr
-        JoinRoom rid                   -> joinRoom rid s conn usr
-        LeaveRoom rid                  -> leaveRoom rid s conn usr
-        _                              -> printState s conn usr
+        CreateRoom rname stry dck prvt -> createRoom rname stry dck prvt s usr
+        DestroyRoom rid                -> destroyRoom rid s usr
+        JoinRoom rid                   -> joinRoom rid s usr
+        LeaveRoom rid                  -> leaveRoom rid s usr
+        _                              -> printState s usr
 
 
 handleRequests :: Concurrent.MVar State -> WS.Connection ->  User -> IO a
 handleRequests state conn usr = Monad.forever $ do
     msg :: Text.Text <- WS.receiveData conn
-    -- TODO: Parse command, update state, send stuff
     case parseCommand msg of
-        Just c  -> handleCommand c state conn usr
+        Just c  -> handleCommand c state usr
         Nothing -> return ()
     s <- Concurrent.readMVar state
-    printState s conn usr
+    printState s usr
 
 
 getUserName :: WS.Connection -> IO UserName
@@ -207,4 +213,4 @@ wsApp state pending = do
     usr <- connectClient uname state conn
     Exception.finally
         (handleRequests state conn usr)
-        (disconnectClient state conn usr)
+        (disconnectClient state usr)
