@@ -4,7 +4,7 @@
 module WsApp (wsApp, State(State), _app, _userState) where
 
 import qualified App                    as A (App, Users, rooms, users)
-import           Command                (Command (Connect, CreateRoom, DestroyRoom, JoinRoom, LeaveRoom, RoomDestroyed, RoomJoined, RoomLeft),
+import           Command                (Command (Connect, CreateNewStory, CreateRoom, DestroyRoom, JoinRoom, LeaveRoom, NewStory, RoomDestroyed, RoomJoined, RoomLeft),
                                          parseCommand)
 import qualified Control.Concurrent     as Concurrent
 import qualified Control.Exception      as Exception
@@ -22,9 +22,10 @@ import qualified Data.Text              as Text
 import           Deck                   (Deck)
 import qualified Network.WebSockets     as WS
 import           Room                   (Private, Room (Room), RoomId, RoomName,
-                                         roomOwner, roomUsers, _roomDeck,
-                                         _roomId, _roomName, _roomOwner,
-                                         _roomPrivate, _roomStory, _roomUsers)
+                                         roomOwner, roomStory, roomUsers,
+                                         _roomDeck, _roomId, _roomName,
+                                         _roomOwner, _roomPrivate, _roomStory,
+                                         _roomUsers)
 import           Story                  (Story)
 import           User                   (User (User), UserId, UserName, userId,
                                          _userId, _userName)
@@ -170,6 +171,19 @@ destroyRoom rid s usr = do
         s
 
 
+newStory :: RoomId -> Story -> CommandHandler
+newStory rid stry s usr = do
+    let uid = usr ^. userId
+        ownsRm = s & userOwnsRoom uid rid
+        msg = encode $ NewStory rid stry
+    Monad.when ownsRm $ broadcastRoom rid s msg
+    return $ if ownsRm then
+        s
+            & app . A.rooms . at rid . _Just . roomStory .~ stry
+    else
+        s
+
+
 -- TODO: REMOVE
 printState :: CommandHandler
 printState s _ = do
@@ -184,6 +198,7 @@ handleCommand cmd state usr = Concurrent.modifyMVar_ state $ \s ->
         DestroyRoom rid                -> destroyRoom rid s usr
         JoinRoom rid                   -> joinRoom rid s usr
         LeaveRoom rid                  -> leaveRoom rid s usr
+        CreateNewStory rid stry        -> newStory rid stry s usr
         _                              -> printState s usr
 
 

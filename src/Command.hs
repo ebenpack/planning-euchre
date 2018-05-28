@@ -26,6 +26,7 @@ data Command =
   | Connected UserId
   | Disconnect
   | Disconnected UserId
+  | CreateNewStory RoomId Story
   | NewStory RoomId Story
   | Vote Card deriving (Generic) -- TODO: better name? estimate?
 
