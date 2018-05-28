@@ -11,8 +11,8 @@ import           Command                (Command (Connect, CreateNewStory, Creat
 import qualified Control.Concurrent     as Concurrent
 import qualified Control.Exception      as Exception
 import           Control.Lens           (allOf, anyOf, at, makeLenses, sans,
-                                         (%~), (&), (.~), (?~), (^.), (^?),
-                                         _Just)
+                                         (%~), (&), (.~), (?~), (^.), (^..),
+                                         (^?), _Just)
 import           Control.Lens.Fold      (folded)
 import           Control.Lens.Traversal (traverse)
 import           Control.Lens.Tuple     (_1, _2)
@@ -21,7 +21,7 @@ import qualified Control.Monad.Loops    as Loops
 import           Data.Aeson             (encode)
 import           Data.ByteString.Lazy   (ByteString)
 import qualified Data.Map               as Map
-import           Data.Maybe             (isJust, maybeToList)
+import           Data.Maybe             (isJust)
 import qualified Data.Text              as Text
 import           Deck                   (Deck)
 import qualified Network.WebSockets     as WS
@@ -209,8 +209,8 @@ makeVote rid crd s usr = do
                 allOf (app . A.rooms . at rid . _Just . roomUsers . folded . _2) (\case
                     Just _ -> True
                     _      -> False)
-            votes = newState ^? app . A.rooms . at rid . _Just . roomUsers . folded . _2 . _Just
-            msg = encode $ VotingComplete $ maybeToList votes
+            votes = newState ^.. app . A.rooms . at rid . _Just . roomUsers . traverse . _2 . _Just
+            msg = encode $ VotingComplete votes
 
         Monad.when votingComplete $ broadcastRoom rid s msg
         return $ if votingComplete then
