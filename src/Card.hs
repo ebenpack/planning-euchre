@@ -19,7 +19,7 @@ data Card =
   | Forty
   | OneHundred
   | Unknown
-  | Infinity deriving (Generic)
+  | Infinity deriving (Generic, Eq)
 
 instance Show Card where
   show Coffee     = "☕"

@@ -27,8 +27,9 @@ data Command =
   | Disconnect
   | Disconnected UserId
   | CreateNewStory RoomId Story
-  | NewStory RoomId Story
-  | Vote Card deriving (Generic) -- TODO: better name? estimate?
+  | NewStoryCreated RoomId Story
+  | VotingComplete [Card]
+  | Vote RoomId Card deriving (Generic) -- TODO: better name? estimate?
 
 -- TODO: Write explicit ToJSON/FromJSON instances(?)
 instance ToJSON Command where

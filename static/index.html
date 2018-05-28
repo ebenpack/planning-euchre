@@ -30,6 +30,16 @@
         <button id="destroy">Destroy Room</button>
         <input type="text" id="destroy-rid">
     </div>
+    <div>
+        <button id="newstory">New Story</button>
+        <input type="text" id="newstory-rid">
+        <input type="text" id="newstory-name">
+    </div>
+    <div>
+        <button id="vote">Vote</button>
+        <input type="text" id="vote-rid">
+        <input type="text" id="vote-card">
+    </div>
     <pre id="log"></pre>
     <script>
         const connect = document.getElementById("connect");
@@ -47,6 +57,13 @@
         const destroy = document.getElementById("destroy");
         const destroyRid = document.getElementById("destroy-rid");
 
+        const newStory = document.getElementById("newstory");
+        const newStoryName = document.getElementById("newstory-name");
+        const newStoryRid = document.getElementById("newstory-rid");
+
+        const vote = document.getElementById("vote");
+        const voteCard = document.getElementById("vote-card");
+        const voteRid = document.getElementById("vote-rid");
 
         const log = document.getElementById("log");
         
@@ -64,7 +81,7 @@
                 log.textContent = JSON.stringify(JSON.parse(m), null, 4) + "\n\n" + log.textContent ;
             };
             ws.onclose = function () {
-                log.textContent += ("ws closed" + "\n");
+                log.textContent = ("ws closed" + "\n") + log.textContent;
             };
             window.onbeforeunload = evt => {
                 socket.close();
@@ -91,6 +108,18 @@
                 ws.send(JSON.stringify({
                     tag: "DestroyRoom",
                     contents:parseInt(destroyRid.value, 10)
+                }));
+            })
+            newStory.addEventListener('click', evt => {
+                ws.send(JSON.stringify({
+                    tag: "CreateNewStory",
+                    contents:[parseInt(newStoryRid.value, 10), newStoryName.value]
+                }));
+            })
+            vote.addEventListener('click', evt => {
+                ws.send(JSON.stringify({
+                    tag: "Vote",
+                    contents:[parseInt(voteRid.value, 10), voteCard.value]
                 }));
             })
         }

@@ -12,16 +12,19 @@ module Room(
         , _roomUsers
         , _roomStory
         , _roomDeck
+        , _roomResult
         , _roomPrivate
     )
     , roomId
     , roomName
     , roomOwner
     , roomUsers
+    , roomResult
     , roomStory
     , roomDeck
     , roomPrivate) where
 
+import           Card         (Card)
 import           Control.Lens (makeLenses)
 import           Data.Aeson   (FromJSON (parseJSON), ToJSON (toEncoding),
                                genericParseJSON, genericToEncoding)
@@ -38,10 +41,13 @@ type RoomId = Int
 
 type RoomName = String
 
+type Result = Maybe Card
+
 data Room = Room { _roomId      :: RoomId
                  , _roomName    :: RoomName
                  , _roomOwner   :: UserId
-                 , _roomUsers   :: Map.Map UserId User
+                 , _roomUsers   :: Map.Map UserId (User, Maybe Card)
+                 , _roomResult  :: Result
                  , _roomStory   :: Story
                  , _roomDeck    :: Deck
                  , _roomPrivate :: Private } deriving (Show, Generic)
