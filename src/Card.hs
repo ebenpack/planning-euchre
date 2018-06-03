@@ -1,5 +1,5 @@
-{-# LANGUAGE DeriveGeneric   #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
+
 module Card(Card(..)) where
 
 import           Data.Aeson   (FromJSON, ToJSON (toEncoding), defaultOptions,

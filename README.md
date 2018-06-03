@@ -6,8 +6,20 @@ A trademark-unencumbered-scrum-planning-card-type-game collaborative web app.
 
 ### Build/run
 
+    # Server
     stack install
     stack exec planning-euchre-exe
+
+    # Build purescript bridge types
+    stack build
+    stack exec planning-euchre-type-bridge
+
+    # Client
+    yarn install
+    ## Dev server
+    yarn start
+    ## Production build
+    yarn build:prod
 
 ### Profiling
 

@@ -10,25 +10,25 @@ module App(
     , _rooms
     , _users) where
 
-import           Control.Lens (makeLenses)
-import           Data.Aeson   (FromJSON (parseJSON), ToJSON (toEncoding),
-                               genericParseJSON, genericToEncoding)
-import qualified Data.Map     as Map
-import           GHC.Generics (Generic)
-import           JSON         (jsonOptions)
-import           Room         (Room, RoomId)
-import           User         (User, UserId)
+import           Control.Lens       (makeLenses)
+import           Data.Aeson         (FromJSON (parseJSON), ToJSON (toEncoding),
+                                     genericParseJSON, genericToEncoding)
+import qualified Data.IntMap.Strict as M
+import           GHC.Generics       (Generic)
+import           JSON               (jsonOptions)
+import           Room               (Room, RoomId)
+import           User               (User, UserId)
 
-type Rooms = Map.Map RoomId Room
+type Rooms = M.IntMap Room
 
-type Users = Map.Map UserId User
+type Users = M.IntMap User
 
-data App = App { _rooms :: Rooms
-               , _users :: Users } deriving (Generic, Show)
+data App = App { _rooms :: M.IntMap Room
+               , _users :: M.IntMap User } deriving (Generic, Show)
 
 
 newApp :: App
-newApp = App { _rooms = Map.empty, _users = Map.empty }
+newApp = App { _rooms = M.empty, _users = M.empty }
 
 makeLenses ''App
 

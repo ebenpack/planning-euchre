@@ -20,7 +20,7 @@ import qualified Control.Monad          as Monad
 import qualified Control.Monad.Loops    as Loops
 import           Data.Aeson             (encode)
 import           Data.ByteString.Lazy   (ByteString)
-import qualified Data.Map               as Map
+import qualified Data.IntMap.Strict     as M
 import           Data.Maybe             (isJust)
 import qualified Data.Text              as Text
 import           Deck                   (Deck)
@@ -37,15 +37,15 @@ import           User                   (User (User), UserId, UserName, userId,
 
 data UserState = UserState { _connection :: WS.Connection
                            , _room       :: Maybe RoomId}
-data State = State { _app :: A.App, _userState :: Map.Map UserId UserState }
+data State = State { _app :: A.App, _userState :: M.IntMap UserState }
 type CommandHandler = State -> User -> IO State
 
 makeLenses ''UserState
 makeLenses ''State
 
 
-nextId :: Integral a => Map.Map a b -> a
-nextId m = head $ dropWhile (`Map.member` m) [1..]
+nextId :: M.IntMap a -> Int
+nextId m = head $ dropWhile (`M.member` m) [1..]
 
 
 broadcast :: State -> A.Users -> ByteString -> IO ()
@@ -67,7 +67,7 @@ broadcastApp state msg = do
 broadcastRoom :: RoomId -> State -> ByteString -> IO ()
 broadcastRoom rid state msg = do
     let rmUsers = state ^. app . A.rooms . at rid . _Just . roomUsers
-    broadcast state (Map.map fst rmUsers) msg
+    broadcast state (M.map fst rmUsers) msg
 
 
 -- |Predicate function indicating whether a given user currently resides in some (any) room
@@ -123,7 +123,7 @@ createRoom rname stry dck prvt s usr = do
                     _roomId=rid
                     , _roomName=rname
                     , _roomOwner=uid
-                    , _roomUsers=Map.singleton uid (usr, Nothing)
+                    , _roomUsers=M.singleton uid (usr, Nothing)
                     , _roomStory=stry
                     , _roomResult=Nothing
                     , _roomDeck=dck

@@ -2,7 +2,7 @@ module Main where
 
 import           App                            (newApp)
 import qualified Control.Concurrent             as Concurrent
-import           Data.Map                       (empty)
+import           Data.IntMap.Strict             (empty)
 import           HttpApp                        (httpApp)
 import qualified Network.Wai.Handler.Warp       as Warp
 import qualified Network.Wai.Handler.WebSockets as WS

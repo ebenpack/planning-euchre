@@ -24,16 +24,16 @@ module Room(
     , roomDeck
     , roomPrivate) where
 
-import           Card         (Card)
-import           Control.Lens (makeLenses)
-import           Data.Aeson   (FromJSON (parseJSON), ToJSON (toEncoding),
-                               genericParseJSON, genericToEncoding)
-import qualified Data.Map     as Map
-import           Deck         (Deck)
-import           GHC.Generics (Generic)
-import           JSON         (jsonOptions)
-import           Story        (Story)
-import           User         (User, UserId)
+import           Card               (Card)
+import           Control.Lens       (makeLenses)
+import           Data.Aeson         (FromJSON (parseJSON), ToJSON (toEncoding),
+                                     genericParseJSON, genericToEncoding)
+import qualified Data.IntMap.Strict as M
+import           Deck               (Deck)
+import           GHC.Generics       (Generic)
+import           JSON               (jsonOptions)
+import           Story              (Story)
+import           User               (User, UserId)
 
 type Private = Bool
 
@@ -46,7 +46,7 @@ type Result = Maybe Card
 data Room = Room { _roomId      :: RoomId
                  , _roomName    :: RoomName
                  , _roomOwner   :: UserId
-                 , _roomUsers   :: Map.Map UserId (User, Maybe Card)
+                 , _roomUsers   :: M.IntMap (User, Maybe Card)
                  , _roomResult  :: Result
                  , _roomStory   :: Story
                  , _roomDeck    :: Deck

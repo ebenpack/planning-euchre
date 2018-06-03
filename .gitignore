@@ -10,3 +10,11 @@ cabal.sandbox.config
 *.swp
 *.keter
 .ghci
+node_modules/
+bower_components/
+output/
+dist/
+static/dist/
+.psci_modules
+.psc-ide-port
+npm-debug.log
