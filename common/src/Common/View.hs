@@ -38,13 +38,13 @@ homeView m =
 
 roomView :: Model -> View Action
 roomView m =
-  div_
+    div_
     []
     [ div_
         []
-        [ button_ [onClick AddOne] [text "+"]
-        , text $ Miso.ms $ show $ _userName m
-        , button_ [onClick SubtractOne] [text "-"]
+        [ input_ [ onInput UpdateName
+                 , value_ $ Miso.ms $ unpack $ _userName m]
+        , button_ [onClick $ Connect $ _userName m] [text "Connect"]
         ]
     , button_ [onClick $ ChangeURI homeLink] [text "Go to /"]
     ]
