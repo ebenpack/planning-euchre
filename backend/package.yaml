@@ -1,0 +1,66 @@
+_package-lib: !include "../package-lib.yaml"
+
+name: backend
+version: '0.1.0.0'
+<<: *maintainer
+
+default-extensions: *app-default-extensions-8-2
+
+executables:
+  backend:
+    main: Main.hs
+    source-dirs: bin
+    ghc-options: *full-ghc-options
+    dependencies:
+    - base
+    - backend
+    - common
+    - containers
+    - scotty
+    - warp
+    - wai
+    - wai-extra
+    - wai-logger
+    - wai-cors
+    - wai-websockets
+    - websockets
+
+library:
+  source-dirs: src
+  ghc-options: *warn-ghc-options
+  dependencies:
+  - aeson
+  - base
+  - bytestring
+  - common
+  - containers
+  - http-types
+  - lens
+  - lucid
+  - miso
+  - monad-loops
+  - mtl
+  - scotty
+  - servant
+  - servant-server
+  - servant-lucid
+  - text
+  - wai
+  - warp
+  - wai-middleware-static
+  - wai-websockets
+  - websockets
+
+tests:
+  spec:
+    main: Main.hs
+    source-dirs: test
+    ghc-options: *full-ghc-options
+    dependencies:
+    - base
+    - backend
+    - hspec
+    - hspec-wai
+    - hspec-wai-json
+    - aeson
+    - transformers

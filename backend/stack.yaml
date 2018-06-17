@@ -1,0 +1,12 @@
+resolver: lts-10.10
+packages:
+- '.'
+- ../common
+
+extra-deps:
+  - miso-0.20.0.0
+  - aeson-1.1.2.0
+  - servant-0.12.1
+  - servant-server-0.12
+  - cabal-doctest-1.0.6
+  - phoityne-vscode-0.0.22.0

@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Backend",
+      "type": "shell",
+      "command":
+        "(cd .. && stack --stack-yaml=backend/stack.yaml build --fast)",
+      "problemMatcher": []
+    },
+    {
+      "label": "Test Backend",
+      "type": "shell",
+      "command": "(cd .. && stack --stack-yaml=backend/stack.yaml test --fast)",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}
