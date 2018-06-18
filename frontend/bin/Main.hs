@@ -2,7 +2,7 @@ module Main where
 
 import           Data.Aeson      (FromJSON, decode)
 import qualified Frontend.Update as Frontend
-import           Miso            (App (..), defaultEvents, fromTransition,
+import           Miso            (App (..), defaultEvents, fromTransition, miso,
                                   uriSub)
 
 import qualified Common.Model    as Common
@@ -10,7 +10,7 @@ import qualified Common.View     as Common
 
 main :: IO ()
 main = do
-  Miso.miso $ \currentURI ->
+  miso $ \currentURI ->
     App
     { initialAction = Common.NoOp
     , model = Common.initialModel currentURI

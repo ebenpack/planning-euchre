@@ -1,14 +1,13 @@
 module Common.View where
 
-import           Data.Proxy     (Proxy (..))
-import           Data.Text      (pack, unpack)
-import           Miso           (View)
+import           Data.Proxy    (Proxy (..))
+import           Data.Text     (unpack)
+import           Miso          (View)
 import qualified Miso
 import           Miso.Html
-import qualified Miso.String    as Miso
-import           Servant.API    ((:<|>) (..))
+import qualified Miso.String   as Miso
+import           Servant.API   ((:<|>) (..))
 
-import qualified Common.Command as Command
 import           Common.Model
 import           Common.Routes
 

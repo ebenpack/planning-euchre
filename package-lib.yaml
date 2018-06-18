@@ -13,6 +13,7 @@
   - -Wincomplete-record-updates
   - -Wincomplete-uni-patterns
   - -Wredundant-constraints
+  - -Wmissing-import-lists
 
 - &warn-ghc-options
   - -Wall
