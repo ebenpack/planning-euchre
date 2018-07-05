@@ -17,6 +17,7 @@ mkdir -p result/bin \
   && docker run --name $DOCKER_NAME -v $(pwd):/src -it $DOCKER_IMAGE stack --stack-root /src/.stack-docker --stack-yaml=frontend/stack.yaml build \
   && echo ">>> Copying over all.js" \
   && cp frontend/.stack-work/install/x86_64-linux/lts-9.21/ghcjs-0.2.1.9009021_ghc-8.0.2/bin/frontend.jsexe/all.js result/static/all.js \
+  && cp -a static/. result/static \
   && echo ">>> Building the backend..." \
   && stack build --stack-yaml=backend/stack.yaml \
   && cp $(stack path --stack-yaml=backend/stack.yaml --local-install-root)/bin/backend result/bin/server \

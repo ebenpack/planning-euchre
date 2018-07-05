@@ -31,6 +31,7 @@ library:
   - ghcjs-base
   - lens
   - miso
+  - mtl
   - network-uri
   - servant
 

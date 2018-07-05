@@ -1,11 +1,11 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Common.Room(
-      RoomId
+module Common.Room
+    ( RoomId
     , RoomName
     , Private
-    , Room(
-          Room
+    , Room
+        ( Room
         , _roomId
         , _roomName
         , _roomOwner
@@ -14,7 +14,7 @@ module Common.Room(
         , _roomDeck
         , _roomResult
         , _roomPrivate
-    )
+        )
     , roomId
     , roomName
     , roomOwner
@@ -22,18 +22,20 @@ module Common.Room(
     , roomResult
     , roomStory
     , roomDeck
-    , roomPrivate) where
+    , roomPrivate
+    )
+where
 
-import           Common.Card               (Card)
+import           Common.Card        (Card)
+import           Common.Deck        (Deck)
+import           Common.JSON        (jsonOptions)
+import           Common.Story       (Story)
+import           Common.User        (User, UserId)
 import           Control.Lens       (makeLenses)
 import           Data.Aeson         (FromJSON (parseJSON), ToJSON (toEncoding),
                                      genericParseJSON, genericToEncoding)
 import qualified Data.IntMap.Strict as M
-import           Common.Deck               (Deck)
 import           GHC.Generics       (Generic)
-import           Common.JSON               (jsonOptions)
-import           Common.Story              (Story)
-import           Common.User               (User, UserId)
 
 type Private = Bool
 
@@ -50,7 +52,7 @@ data Room = Room { _roomId      :: RoomId
                  , _roomResult  :: Result
                  , _roomStory   :: Story
                  , _roomDeck    :: Deck
-                 , _roomPrivate :: Private } deriving (Show, Generic)
+                 , _roomPrivate :: Private } deriving (Show, Generic, Eq)
 
 makeLenses ''Room
 

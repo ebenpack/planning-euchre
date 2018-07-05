@@ -1,6 +1,9 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module Common.Card(Card(..)) where
+module Common.Card
+    ( Card(..)
+    )
+where
 
 import           Data.Aeson   (FromJSON, ToJSON (toEncoding), defaultOptions,
                                genericToEncoding)
@@ -19,7 +22,7 @@ data Card =
   | Forty
   | OneHundred
   | Unknown
-  | Infinity deriving (Generic, Eq)
+  | Infinity deriving (Generic, Eq, Bounded, Enum)
 
 instance Show Card where
   show Coffee     = "☕"
@@ -40,4 +43,3 @@ instance ToJSON Card where
     toEncoding = genericToEncoding defaultOptions
 
 instance FromJSON Card
-

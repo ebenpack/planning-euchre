@@ -21,6 +21,7 @@
   - -Wincomplete-record-updates
   - -Wincomplete-uni-patterns
   - -Wredundant-constraints
+  - -fwarn-unused-imports
 
 - &app-default-extensions-8-2
   - ApplicativeDo

@@ -1,9 +1,13 @@
 {-# LANGUAGE DeriveGeneric #-}
-module Common.Command(Command(..), parseCommand) where
+module Common.Command
+    ( Command(..)
+    , parseCommand
+    )
+where
 
 import           Common.Card          (Card)
 import           Common.Deck          (Deck)
-import           Common.Room          (Private, RoomId, RoomName)
+import           Common.Room          (Private, Room (Room), RoomId, RoomName)
 import           Common.Story         (Story)
 import           Common.User          (User, UserId, UserName)
 import           Data.Aeson           (FromJSON, ToJSON (toEncoding), decode,
@@ -13,14 +17,14 @@ import qualified Data.Text            as Text
 import           Data.Text.Encoding   (encodeUtf8)
 import           GHC.Generics         (Generic)
 
-
 data Command =
     CreateRoom RoomName Story Deck Private
+  | RoomCreated Room
   | DestroyRoom RoomId
   | RoomDestroyed RoomId
   | JoinRoom RoomId
   | LeaveRoom RoomId
-  | RoomJoined RoomId User
+  | RoomJoined Room
   | RoomLeft RoomId User
   | Connect UserName
   | Connected UserId
