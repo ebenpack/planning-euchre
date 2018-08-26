@@ -1,20 +1,25 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Common.User (
-      User(User)
+module Common.User
+    ( User(User)
     , UserName
     , UserId
     , _userName
     , _userId
     , userId
-    , userName) where
+    , userName
+    )
+where
 
-import           Common.JSON  (jsonOptions)
-import           Control.Lens (makeLenses)
-import           Data.Aeson   (FromJSON (parseJSON), ToJSON (toEncoding),
-                               genericParseJSON, genericToEncoding)
-import qualified Data.Text    as Text
-import           GHC.Generics (Generic)
+import           Common.JSON                    ( jsonOptions )
+import           Control.Lens                   ( makeLenses )
+import           Data.Aeson                     ( FromJSON(parseJSON)
+                                                , ToJSON(toEncoding)
+                                                , genericParseJSON
+                                                , genericToEncoding
+                                                )
+import qualified Data.Text                     as Text
+import           GHC.Generics                   ( Generic )
 
 type UserName = Text.Text
 

@@ -25,7 +25,7 @@ data Command =
   | JoinRoom RoomId
   | LeaveRoom RoomId
   | RoomJoined Room
-  | RoomLeft RoomId User
+  | RoomLeft Room
   | Connect UserName
   | Connected UserId
   | Disconnect

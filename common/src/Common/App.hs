@@ -1,24 +1,29 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Common.App(
-      Rooms
+module Common.App
+    ( Rooms
     , Users
     , App
     , newApp
     , rooms
     , users
     , _rooms
-    , _users) where
+    , _users
+    )
+where
 
-import           Control.Lens       (makeLenses)
-import           Data.Aeson         (FromJSON (parseJSON), ToJSON (toEncoding),
-                                     genericParseJSON, genericToEncoding)
-import qualified Data.IntMap.Strict as M
-import           GHC.Generics       (Generic)
+import           Control.Lens                   ( makeLenses )
+import           Data.Aeson                     ( FromJSON(parseJSON)
+                                                , ToJSON(toEncoding)
+                                                , genericParseJSON
+                                                , genericToEncoding
+                                                )
+import qualified Data.IntMap.Strict            as M
+import           GHC.Generics                   ( Generic )
 
-import           Common.JSON        (jsonOptions)
-import           Common.Room        (Room)
-import           Common.User        (User)
+import           Common.JSON                    ( jsonOptions )
+import           Common.Room                    ( Room )
+import           Common.User                    ( User )
 
 type Rooms = M.IntMap Room
 
@@ -29,7 +34,7 @@ data App = App { _rooms :: M.IntMap Room
 
 
 newApp :: App
-newApp = App { _rooms = M.empty, _users = M.empty }
+newApp = App {_rooms = M.empty, _users = M.empty}
 
 makeLenses ''App
 

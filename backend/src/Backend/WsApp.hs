@@ -10,87 +10,36 @@ module Backend.WsApp
     )
 where
 
-import qualified Control.Concurrent            as Concurrent
-import qualified Control.Exception             as Exception
-import           Control.Lens                   ( allOf
-                                                , anyOf
-                                                , at
-                                                , makeLenses
-                                                , sans
-                                                , (%~)
-                                                , (&)
-                                                , (.~)
-                                                , (?~)
-                                                , (^.)
-                                                , (^..)
-                                                , (^?)
-                                                , _Just
-                                                )
-import           Control.Lens.Fold              ( folded )
-import           Control.Lens.Traversal         ( traverse )
-import           Control.Lens.Tuple             ( _1
-                                                , _2
-                                                )
-import qualified Control.Monad                 as Monad
-import qualified Control.Monad.Loops           as Loops
-import           Data.Aeson                     ( encode )
-import           Data.ByteString.Lazy           ( ByteString )
-import qualified Data.IntMap.Strict            as M
-import           Data.Maybe                     ( isJust )
-import qualified Data.Text                     as Text
-import qualified Network.WebSockets            as WS
+import qualified Control.Concurrent     as Concurrent
+import qualified Control.Exception      as Exception
+import           Control.Lens           (allOf, anyOf, at, makeLenses, sans,
+                                         (%~), (&), (.~), (?~), (^.), (^..),
+                                         (^?), _Just)
+import           Control.Lens.Fold      (folded)
+import           Control.Lens.Traversal (traverse)
+import           Control.Lens.Tuple     (_1, _2)
+import qualified Control.Monad          as Monad
+import qualified Control.Monad.Loops    as Loops
+import           Data.Aeson             (encode)
+import           Data.ByteString.Lazy   (ByteString)
+import qualified Data.IntMap.Strict     as M
+import           Data.Maybe             (isJust)
+import qualified Data.Text              as Text
+import qualified Network.WebSockets     as WS
 
-import qualified Common.App                    as A
-                                                ( App
-                                                , Users
-                                                , rooms
-                                                , users
-                                                )
-import           Common.Card                    ( Card )
-import           Common.Command                 ( Command
-                                                    ( Connect
-                                                    , Connected
-                                                    , CreateNewStory
-                                                    , CreateRoom
-                                                    , DestroyRoom
-                                                    , JoinRoom
-                                                    , LeaveRoom
-                                                    , NewStoryCreated
-                                                    , RoomCreated
-                                                    , RoomDestroyed
-                                                    , RoomJoined
-                                                    , RoomLeft
-                                                    , Vote
-                                                    , VotingComplete
-                                                    )
-                                                , parseCommand
-                                                )
-import           Common.Deck                    ( Deck )
-import           Common.Room                    ( Private
-                                                , Room(Room)
-                                                , RoomId
-                                                , RoomName
-                                                , roomDeck
-                                                , roomOwner
-                                                , roomStory
-                                                , roomUsers
-                                                , _roomDeck
-                                                , _roomId
-                                                , _roomName
-                                                , _roomOwner
-                                                , _roomPrivate
-                                                , _roomResult
-                                                , _roomStory
-                                                , _roomUsers
-                                                )
-import           Common.Story                   ( Story )
-import           Common.User                    ( User(User)
-                                                , UserId
-                                                , UserName
-                                                , userId
-                                                , _userId
-                                                , _userName
-                                                )
+import qualified Common.App             as A (App, Users, rooms, users)
+import           Common.Card            (Card)
+import           Common.Command         (Command (Connect, Connected, CreateNewStory, CreateRoom, DestroyRoom, JoinRoom, LeaveRoom, NewStoryCreated, RoomCreated, RoomDestroyed, RoomJoined, RoomLeft, Vote, VotingComplete),
+                                         parseCommand)
+import           Common.Deck            (Deck)
+import           Common.Room            (Private, Room (Room), RoomId, RoomName,
+                                         roomDeck, roomOwner, roomStory,
+                                         roomUsers, _roomDeck, _roomId,
+                                         _roomName, _roomOwner, _roomPrivate,
+                                         _roomResult, _roomStory, _roomUsers)
+import           Common.Story           (Story)
+import           Common.User            (User (User), UserId, UserName, userId,
+                                         _userId, _userName)
 
 
 data UserState = UserState { _connection :: WS.Connection
@@ -238,7 +187,8 @@ joinRoom rid s usr = do
                 .  room
                 ?~ rid
             else s
-    Monad.when userNotInRoom $ case room' of
+    let room'' = newState ^? app . A.rooms . at rid . _Just
+    Monad.when userNotInRoom $ case room'' of
         Just r -> do
             let msg = encode $ RoomJoined r
             broadcastRoom rid newState msg
@@ -255,8 +205,10 @@ leaveRoom rid s usr = do
         then do
             let newState =
                     s & app . A.rooms . at rid . _Just . roomUsers %~ sans uid
-                msg = encode $ RoomLeft rid usr
-            broadcastRoom rid newState msg
+                newRoom = newState ^? app . A.rooms . at rid . _Just
+            case newRoom of
+                Just r  -> broadcastRoom rid newState $ encode $ RoomLeft r
+                Nothing -> return ()
             return newState
         else return s
 

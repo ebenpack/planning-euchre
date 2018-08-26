@@ -5,19 +5,23 @@
 
 module Common.View where
 
-import           Data.Proxy    (Proxy (..))
-import           Miso          (View)
+import qualified Data.IntMap.Strict as M
+import           Data.Monoid        (mempty, (<>))
+import           Data.Proxy         (Proxy (..))
+import qualified Data.Text          as Text
+import           Miso               (View)
 import qualified Miso
 import           Miso.Html
-import qualified Miso.String   as Miso
-import           Servant.API   ((:<|>) (..))
-import           Text.Read     (readMaybe)
+import qualified Miso.String        as Miso
+import           Servant.API        ((:<|>) (..))
+import           Text.Read          (readMaybe)
 
-import           Common.Card   (Card (..))
-import           Common.Deck   (Deck)
-import           Common.Model  as Model
-import           Common.Room   as Room
-import           Common.Routes as Routes
+import           Common.Card        (Card (..))
+import           Common.Deck        (Deck)
+import           Common.Model       as Model
+import           Common.Room        as Room
+import           Common.Routes      as Routes
+import           Common.User        as User
 
 viewModel :: Model.Model -> View Model.Action
 viewModel model = view
@@ -47,7 +51,7 @@ signInView m =
                 , value_ $ Model._userName m
                 ]
             , button_
-                [ onClick $ Model.Connect (Miso.fromMisoString $ _userName m)
+                [ onClick $ Model.Connect (Miso.fromMisoString $ Model._userName m)
                 , class_ "button"
                 ]
                 [text "Connect"]
@@ -125,15 +129,15 @@ joinRoomView m =
     createRoomStoryId = "create_room__story"
     joinRoomNameId = "join_room__id"
     createRoom :: Model.Model -> Model.Action
-    createRoom m =
-      let roomName = Miso.fromMisoString $ Model._roomName m
-          story = Miso.fromMisoString $ Model._roomStory m
-          deck = Model._roomDeck m
-          private = Model._roomPrivate m
-      in Model.CreateRoom roomName story deck private
+    createRoom m' =
+      let roomName' = Miso.fromMisoString $ Model._roomName m'
+          story = Miso.fromMisoString $ Model._roomStory m'
+          deck = Model._roomDeck m'
+          private = Model._roomPrivate m'
+      in Model.CreateRoom roomName' story deck private
     joinRoom :: Model.Model -> Model.Action
-    joinRoom m =
-      case readMaybe $ Miso.fromMisoString $ Model._roomId m of
+    joinRoom m' =
+      case readMaybe $ Miso.fromMisoString $ Model._roomId m' of
         Just n  -> Model.JoinRoom n
         Nothing -> Model.NoOp
     cards :: [View Model.Action]
@@ -155,7 +159,7 @@ joinRoomView m =
             ])
 
 roomView :: Room.RoomId -> Model.Model -> View Action
-roomView rid m =
+roomView _ m =
     let rm = _room m in
     case rm of
         Nothing -> div_ [] [text "Whoopsie, something seems to have gone wrong"]
@@ -165,6 +169,7 @@ roomView rid m =
                 stry = Room._roomStory rm'
                 prvt = Room._roomPrivate rm'
                 dck = Room._roomDeck rm'
+                usrs = Text.intercalate ", " $ map (User._userName . fst . snd) $ M.toList (Room._roomUsers rm')
                 crds = map (text . Miso.toMisoString . show) dck
             in
                 div_
@@ -173,6 +178,7 @@ roomView rid m =
                     , div_
                         []
                         [ p_ [] [text $ Miso.toMisoString stry]
+                        , p_ [] [text $ Miso.toMisoString usrs]
                         , p_
                             []
                             [ text $

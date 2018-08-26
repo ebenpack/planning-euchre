@@ -20,19 +20,17 @@ import qualified Common.View as View
 
 main :: IO ()
 main = do
-  miso $ \currentURI ->
-    App
+  miso $ \currentURI -> App
     { initialAction = Model.NoOp
-    , model = Model.initialModel currentURI
-    , update = fromTransition . Frontend.updateModel
-    , view = View.viewModel
-    , events = defaultEvents
-    , subs =
-        [ uriSub Model.HandleURI
-        , websocketSub uri protocols Frontend.socketHandler
-        ]
-    , mountPoint = Nothing
+    , model         = Model.initialModel currentURI
+    , update        = fromTransition . Frontend.updateModel
+    , view          = View.viewModel
+    , events        = defaultEvents
+    , subs          = [ uriSub Model.HandleURI
+                      , websocketSub uri protocols Frontend.socketHandler
+                      ]
+    , mountPoint    = Nothing
     }
-  where
-    uri = URL "ws://localhost:3000"
-    protocols = Protocols []
+ where
+  uri       = URL "ws://localhost:3000"
+  protocols = Protocols []
