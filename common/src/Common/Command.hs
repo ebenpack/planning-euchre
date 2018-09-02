@@ -32,7 +32,9 @@ data Command =
   | Disconnected UserId
   | CreateNewStory RoomId Story
   | NewStoryCreated Room
-  | VotingComplete Room
+  | VotingReadyToClose RoomId
+  | VotingClosed Room
+  | CloseVote RoomId
   | Vote Card deriving (Generic, Show, Eq)
 
 -- TODO: Write explicit ToJSON/FromJSON instances(?)

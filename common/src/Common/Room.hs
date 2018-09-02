@@ -12,16 +12,14 @@ module Common.Room
         , _roomUsers
         , _roomStory
         , _roomDeck
-        , _roomResult
         , _roomPrivate
         , _roomState
         )
-    , RoomState (Voting, Results)
+    , RoomState (VotingOpen, VotingComplete, VotingClosed)
     , roomId
     , roomName
     , roomOwner
     , roomUsers
-    , roomResult
     , roomStory
     , roomDeck
     , roomPrivate
@@ -29,27 +27,28 @@ module Common.Room
     )
 where
 
-import           Common.Card        (Card)
-import           Common.Deck        (Deck)
-import           Common.JSON        (jsonOptions)
-import           Common.Story       (Story)
-import           Common.User        (User, UserId)
 import           Control.Lens       (makeLenses)
 import           Data.Aeson         (FromJSON (parseJSON), ToJSON (toEncoding),
                                      defaultOptions, genericParseJSON,
                                      genericToEncoding)
 import qualified Data.IntMap.Strict as M
+import qualified Data.Text          as Text
 import           GHC.Generics       (Generic)
+
+import           Common.Card        (Card)
+import           Common.Deck        (Deck)
+import           Common.JSON        (jsonOptions)
+import           Common.Story       (Story)
+import           Common.User        (User, UserId)
+
 
 type Private = Bool
 
 type RoomId = Int
 
-type RoomName = String
+type RoomName = Text.Text
 
-type Result = Maybe Card
-
-data RoomState = Voting | Results deriving (Show, Generic, Eq)
+data RoomState = VotingOpen | VotingComplete | VotingClosed deriving (Show, Generic, Eq)
 
 instance ToJSON RoomState where
     toEncoding = genericToEncoding defaultOptions
@@ -60,7 +59,6 @@ data Room = Room { _roomId      :: RoomId
                  , _roomName    :: RoomName
                  , _roomOwner   :: UserId
                  , _roomUsers   :: M.IntMap (User, Maybe Card)
-                 , _roomResult  :: Result
                  , _roomStory   :: Story
                  , _roomDeck    :: Deck
                  , _roomPrivate :: Private

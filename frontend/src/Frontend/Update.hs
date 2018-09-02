@@ -4,7 +4,8 @@ module Frontend.Update where
 
 import           Control.Lens               (contains, filtered, folded, noneOf,
                                              toListOf, (%=), (&), (+=), (-=),
-                                             (.=), (<>=), (?=), (^.), (^..))
+                                             (.=), (<>=), (?=), (^.), (^..),
+                                             _Just)
 import           Control.Monad.Writer.Class (tell)
 import           Data.Char                  (isDigit)
 import           Data.Maybe                 (fromMaybe)
@@ -58,7 +59,9 @@ updateModel (Model.Vote crd) = do
     scheduleIO $ do
       send msg
       pure Model.NoOp
-updateModel (Model.VotingComplete rm) = Model.room ?= rm
+updateModel (Model.VotingReadyToClose _) =
+    Model.room . _Just . Room.roomState .= Room.VotingComplete
+updateModel (Model.VotingClosed rm) = Model.room ?= rm
 -- Sign in
 updateModel (Model.SignInUpdateUserName    n        ) = Model.userName .= n
 -- Create room
@@ -78,16 +81,24 @@ updateModel (Model.CreateNewStory rid stry) = do
     scheduleIO $ do
       send msg
       pure Model.NoOp
+updateModel (Model.RoomDestroyed) = do
+    scheduleIO $ pure $ Model.ChangeURI Routes.joinRoomLink
+updateModel (Model.CloseVote rid) = do
+    scheduleIO $ do
+        send $ Command.CloseVote rid
+        pure Model.NoOp
+
 
 socketHandler :: WebSocket Command.Command -> Model.Action
 socketHandler WebSocketOpen = Model.NoOp
 socketHandler (WebSocketClose _ _ _                        ) = Model.NoOp
 socketHandler (WebSocketError   _                          ) = Model.NoOp
 socketHandler (WebSocketMessage (Command.RoomCreated   rm )) = Model.RoomJoined rm
-socketHandler (WebSocketMessage (Command.RoomDestroyed rid)) = Model.NoOp
+socketHandler (WebSocketMessage (Command.RoomDestroyed rid)) = Model.RoomDestroyed
 socketHandler (WebSocketMessage (Command.RoomJoined    rm )) = Model.RoomJoined rm
 socketHandler (WebSocketMessage (Command.RoomLeft rm )) = Model.RoomJoined rm
 socketHandler (WebSocketMessage (Command.Connected uid)) = Model.Connected uid
 socketHandler (WebSocketMessage (Command.Disconnected uid)) = Model.NoOp
 socketHandler (WebSocketMessage (Command.NewStoryCreated rm)) = Model.NewStoryCreated rm
-socketHandler (WebSocketMessage (Command.VotingComplete rm)) = Model.VotingComplete rm
+socketHandler (WebSocketMessage (Command.VotingReadyToClose rid)) = Model.VotingReadyToClose rid
+socketHandler (WebSocketMessage (Command.VotingClosed rm)) = Model.VotingClosed rm

@@ -8,6 +8,7 @@ module Common.View where
 import           Control.Lens       (anyOf, at, folded, (&), (^.), (^?), _1,
                                      _Just)
 import qualified Data.IntMap.Strict as M
+import           Data.Maybe         (isJust)
 import           Data.Proxy         (Proxy (..))
 import qualified Data.Text          as Text
 import           Miso               (View)
@@ -164,13 +165,37 @@ joinRoomView m =
             ])
 
 
-votingView :: Model.Model -> Room.Room -> [View Action]
-votingView m rm =
+votingView :: Model.Model -> Room.Room -> Bool -> [View Action]
+votingView m rm complt =
     let
         vt = _vote m
+        uid = m ^. Model.userId
+        rid = m ^? Model.room . _Just . Room.roomId
+        usrs = (Room._roomUsers rm)
+        userOwnsRoom = isJust uid && (m ^? Model.room . _Just . Room.roomOwner) == uid
+        closeVote = if complt && userOwnsRoom then [
+            button_
+                [ onClick $ case rid of
+                    Just rid' -> Model.CloseVote rid'
+                    Nothing   -> Model.NoOp
+                , class_ "button"]
+                [text "New story"]] else []
     in
-        roomHeader_ m rm ++
+        roomHeader_ m rm (roomUsers usrs) ++
+        closeVote ++
         cardView m rm [""] vt True
+    where
+        roomUsers :: Show a => M.IntMap (User, Maybe a) -> [View Action]
+        roomUsers usrs =
+            [p_ [] [text "Users:"]] ++
+            (map (\u ->
+                let
+                    usr = (fst . snd) u
+                in
+                    p_
+                        []
+                        [text $ Miso.toMisoString $ User._userName usr]
+                ) $ M.toList usrs)
 
 resultsView :: Model.Model -> Room.Room -> [View Action]
 resultsView m rm =
@@ -179,7 +204,7 @@ resultsView m rm =
         usrs = (Room._roomUsers rm)
         uid = m ^. Model.userId
         rid = m ^? Model.room . _Just . Room.roomId
-        userOwnsRoom = (m ^? Model.room . _Just . Room.roomOwner) == uid
+        userOwnsRoom = isJust uid && (m ^? Model.room . _Just . Room.roomOwner) == uid
         newStory =
             if userOwnsRoom
             then
@@ -198,13 +223,14 @@ resultsView m rm =
                     [text "New story"]]
             else []
     in
-        roomHeader_ m rm ++
-        results usrs ++
+        roomHeader_ m rm (results usrs) ++
         newStory ++
         cardView m rm [""] vt False
     where
+        results :: Show a => M.IntMap (User, Maybe a) -> [View Action]
         results usrs =
-            map (\u ->
+            [p_ [] [text "Results:"]] ++
+            (map (\u ->
                 let
                     usr = (fst . snd) u
                     crd = case (snd . snd) u of
@@ -214,30 +240,29 @@ resultsView m rm =
                     p_
                         []
                         [text $ Miso.toMisoString $ Text.concat [User._userName usr, " ", crd]]
-                ) $ M.toList usrs
+                ) $ M.toList usrs)
 
-roomHeader_ :: Model.Model -> Room.Room -> [View Action]
-roomHeader_ _ rm =
+roomHeader_ :: Model.Model -> Room.Room -> [View Action] -> [View Action]
+roomHeader_ _ rm results =
     let
-        rmName = Room._roomName rm
-        stry = Room._roomStory rm
+        rmName = Text.concat ["Room: ", Room._roomName rm]
+        stry = Text.concat ["Story: ", Room._roomStory rm]
         prvt = Room._roomPrivate rm
         usrs = Text.intercalate ", " $ map (User._userName . fst . snd) $ M.toList (Room._roomUsers rm)
     in
-        [ h2_ [] [text $ Miso.toMisoString rmName]
-        , div_
-            []
-            [ p_ [] [text $ Miso.toMisoString stry]
-            , p_ [] [text $ Miso.toMisoString usrs]
-            , p_
-                []
-                [ text $
-                if prvt
-                    then "Private"
-                    else "Public"
-                ]
-            ]
-        ]
+        [
+            div_ [class_ "columns is-mobile"] [
+                div_
+                    [class_ "column"]
+                    [ h2_ [] [text $ Miso.toMisoString rmName]
+                    , h2_ [] [text $ Miso.toMisoString stry]
+                    , text $
+                        if prvt
+                            then "Private"
+                            else "Public"
+                    ]
+                , div_
+                    [class_ "column"] results]]
 
 roomView :: Room.RoomId -> Model.Model -> View Action
 roomView _ m =
@@ -247,8 +272,9 @@ roomView _ m =
             div_
                 []
                 (case Room._roomState rm' of
-                    Room.Voting  -> votingView m rm'
-                    Room.Results -> resultsView m rm')
+                    Room.VotingOpen     -> votingView m rm' False
+                    Room.VotingComplete -> votingView m rm' True
+                    Room.VotingClosed   -> resultsView m rm')
 
 
 cardView :: Model.Model -> Room.Room -> [String] -> Maybe Card -> Bool -> [View Action]

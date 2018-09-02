@@ -12,18 +12,15 @@ module Common.App
     )
 where
 
-import           Control.Lens                   ( makeLenses )
-import           Data.Aeson                     ( FromJSON(parseJSON)
-                                                , ToJSON(toEncoding)
-                                                , genericParseJSON
-                                                , genericToEncoding
-                                                )
-import qualified Data.IntMap.Strict            as M
-import           GHC.Generics                   ( Generic )
+import           Control.Lens       (makeLenses)
+import           Data.Aeson         (FromJSON (parseJSON), ToJSON (toEncoding),
+                                     genericParseJSON, genericToEncoding)
+import qualified Data.IntMap.Strict as M
+import           GHC.Generics       (Generic)
 
-import           Common.JSON                    ( jsonOptions )
-import           Common.Room                    ( Room )
-import           Common.User                    ( User )
+import           Common.JSON        (jsonOptions)
+import           Common.Room        (Room)
+import           Common.User        (User)
 
 type Rooms = M.IntMap Room
 

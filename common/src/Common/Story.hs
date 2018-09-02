@@ -1,3 +1,5 @@
 module Common.Story(Story) where
 
-type Story = String
+import qualified Data.Text as Text
+
+type Story = Text.Text

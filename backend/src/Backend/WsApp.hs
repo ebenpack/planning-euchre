@@ -46,6 +46,7 @@ import           Backend.State                 as State
                                                     )
                                                 , app
                                                 , appRoom
+                                                , appRoomOwner
                                                 , appRoomDeck
                                                 , appRoomState
                                                 , appRoomStory
@@ -87,6 +88,7 @@ import           Common.Room                   as Room
                                                 )
 import           Common.Story                   ( Story )
 import           Common.User                    ( User(User)
+                                                , UserId
                                                 , UserName
                                                 , userId
                                                 , _userId
@@ -106,6 +108,14 @@ broadcastUser :: State -> User -> ByteString -> IO ()
 broadcastUser s usr msg =
     let uid  = usr ^. userId
         conn = s ^? userStateConnection uid
+    in  case conn of
+            Just conn' -> WS.sendTextData conn' msg
+            _          -> return ()
+
+
+broadcastUserById :: State -> UserId -> ByteString -> IO ()
+broadcastUserById s uid msg =
+    let conn = s ^? userStateConnection uid
     in  case conn of
             Just conn' -> WS.sendTextData conn' msg
             _          -> return ()
@@ -200,6 +210,7 @@ leaveRoom rid s usr = do
     let uid      = usr ^. userId
         inRoom   = s & userInRoom uid rid
         ownsRoom = s & userOwnsRoom uid rid
+        rmOwner  = s ^? appRoomOwner rid
     if ownsRoom
         then destroyRoom rid s usr
         else if inRoom
@@ -210,13 +221,26 @@ leaveRoom rid s usr = do
                             %~ sans uid
                             &  userStateRoom uid
                             .~ Nothing
-                    rm = newState ^? appRoom rid . _Just
+                    rm     = newState ^? appRoom rid . _Just
+                    voting = (s ^? appRoomState rid) == Just VotingOpen
+                    votingComplete =
+                        newState & allOf (appRoomUsers rid . folded . _2) isJust
+                    newState' = if votingComplete
+                        then newState & appRoomState rid .~ VotingComplete
+                        else newState
                 case rm of
                     Just rm' ->
-                        broadcastRoom newState rid $ encode $ Command.RoomLeft
+                        broadcastRoom newState' rid $ encode $ Command.RoomLeft
                             rm'
                     Nothing -> return ()
-                return newState
+                case rmOwner of
+                    Just rmOwner' ->
+                        Monad.when votingComplete $ broadcastUserById
+                            newState'
+                            rmOwner'
+                            (encode $ Command.VotingReadyToClose rid)
+                    _ -> return ()
+                return newState'
             else return s
 
 destroyRoom :: RoomId -> CommandHandler
@@ -281,6 +305,7 @@ makeVote crd s usr = do
                 isLegalCard = s & anyOf (appRoomDeck rid' . folded) (== crd)
                 voting      = (s ^? appRoomState rid') == Just VotingOpen
                 isLegalVote = inRoom && isLegalCard && voting
+                rmOwner     = s ^? appRoomOwner rid'
             if not isLegalVote
                 then return s
                 else do
@@ -291,12 +316,13 @@ makeVote crd s usr = do
                         newState' = if votingComplete
                             then newState & appRoomState rid' .~ VotingComplete
                             else newState
-                        rm = newState' ^? appRoom rid' . _Just
-
-                    Monad.when votingComplete $ broadcastRoom
-                        newState'
-                        rid'
-                        (encode $ Command.VotingReadyToClose rid')
+                    case rmOwner of
+                        Just rmOwner' ->
+                            Monad.when votingComplete $ broadcastUserById
+                                newState'
+                                rmOwner'
+                                (encode $ Command.VotingReadyToClose rid')
+                        _ -> return ()
                     return newState'
         Nothing -> return s
 

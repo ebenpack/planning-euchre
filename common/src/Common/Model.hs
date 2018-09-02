@@ -50,6 +50,7 @@ data Action
   | HandleWebSocket Command
   | SendMessage Command
   | CreateRoom RoomName Story Deck Private
+  | RoomDestroyed
   | JoinRoom RoomId
   | RoomJoined Room
   | Connect UserName
@@ -62,7 +63,9 @@ data Action
   | CreateRoomUpdatePrivacy Bool
   | CreateRoomUpdateDeck Card Bool
   | JoinRoomUpdateId MisoString
-  | VotingComplete Room
+  | VotingReadyToClose RoomId
+  | CloseVote RoomId
+  | VotingClosed Room
   | CreateNewStory RoomId MisoString
   | NewStoryCreated Room
   deriving (Show, Eq)
