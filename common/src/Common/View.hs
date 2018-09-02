@@ -170,7 +170,7 @@ votingView m rm =
         vt = _vote m
     in
         roomHeader_ m rm ++
-        cardView m rm [""] vt
+        cardView m rm [""] vt True
 
 resultsView :: Model.Model -> Room.Room -> [View Action]
 resultsView m rm =
@@ -201,7 +201,7 @@ resultsView m rm =
         roomHeader_ m rm ++
         results usrs ++
         newStory ++
-        cardView m rm [""] vt
+        cardView m rm [""] vt False
     where
         results usrs =
             map (\u ->
@@ -251,28 +251,33 @@ roomView _ m =
                     Room.Results -> resultsView m rm')
 
 
-cardView :: Model.Model -> Room.Room -> [String] -> Maybe Card -> [View Action]
-cardView _ rm cls vt =
+cardView :: Model.Model -> Room.Room -> [String] -> Maybe Card -> Bool -> [View Action]
+cardView _ rm cls vt votingOpen =
     let
         dck = Room._roomDeck rm
     in
+        -- TODO: shut off voting when not voting
         [div_
-            [class_ $ Miso.toMisoString $ unwords ("deck" : "is-multiline" : "columns" : cls)]
+            [class_ $ Miso.toMisoString $ unwords ("deck" : "is-multiline" : "is-mobile" : "columns" : cls)]
             (map (\c ->
                 let match = case vt of
                         Just crd | crd == c -> True
                         _                   -> False
                     cardClass = Text.intercalate " " $ ["card"] ++ if match then ["selected"] else []
+                    cardText = [text $ Miso.toMisoString $ show c]
+                    clickHandler = if votingOpen then Model.Vote c else Model.NoOp
                 in
                     div_
-                        [class_ "column is-one-quarter"]
+                        [ onClick clickHandler
+                        , class_ "column is-one-quarter-desktop is-one-third-tablet is-half-mobile"]
                         [div_ [class_ $ Miso.toMisoString cardClass]
-                            [div_
+                            [ div_ [class_ "card-head"] cardText
+                            , div_
                                 [class_ "level"]
                                 [div_
-                                    [onClick $ Model.Vote c
-                                    , class_ "level-item"]
-                                    [text $ Miso.toMisoString $ show c]]
+                                    [class_ "level-item"]
+                                    cardText]
+                            , div_ [class_ "card-foot has-text-right"] cardText
                             ]]) dck)]
 
 -- Handle 404 errors.

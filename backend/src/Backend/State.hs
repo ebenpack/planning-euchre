@@ -73,6 +73,7 @@ type CommandHandler = State -> User -> IO State
 makeLenses ''UserState
 makeLenses ''State
 
+
 -------------
 -- UserState
 -------------
@@ -101,6 +102,7 @@ userStateUser
     -> State
     -> f State
 userStateUser uid = userState . at uid
+
 
 -------------
 -- App Users

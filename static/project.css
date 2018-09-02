@@ -1,7 +1,18 @@
-.deck .card .level-item {
-    height: 300px;
+.deck .card {
     font-size: 3em;
     cursor: pointer;
+    border-radius: 0.2em;
+}
+
+.deck .level {
+    padding: 1.5rem 0;
+    border: 1px solid lightgray;
+    margin: 0 1.5rem;
+}
+
+.deck .card-head, .deck .card-foot {
+    padding: 0.5em;
+    font-size: 0.5em;
 }
 
 .deck .card.selected {

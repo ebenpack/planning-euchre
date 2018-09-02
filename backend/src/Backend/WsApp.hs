@@ -214,17 +214,20 @@ joinRoom rid s usr = do
 
 leaveRoom :: RoomId -> CommandHandler
 leaveRoom rid s usr = do
-    let uid    = usr ^. userId
-        inRoom = isJust $ s ^? appRoomUser rid uid
-    if inRoom
-        then do
-            let newState = s & appRoomUsers rid %~ sans uid
-                newRoom  = newState ^? appRoom rid . _Just
-            case newRoom of
-                Just r  -> broadcastRoom newState rid $ encode $ RoomLeft r
-                Nothing -> return ()
-            return newState
-        else return s
+    let uid      = usr ^. userId
+        inRoom   = isJust $ s ^? appRoomUser rid uid
+        ownsRoom = s & userOwnsRoom uid rid
+    if ownsRoom
+        then destroyRoom rid s usr
+        else if inRoom
+            then do
+                let newState = s & appRoomUsers rid %~ sans uid
+                    newRoom  = newState ^? appRoom rid . _Just
+                case newRoom of
+                    Just r  -> broadcastRoom newState rid $ encode $ RoomLeft r
+                    Nothing -> return ()
+                return newState
+            else return s
 
 destroyRoom :: RoomId -> CommandHandler
 destroyRoom rid s usr = do
@@ -280,7 +283,8 @@ makeVote crd s usr = do
             let inRoom      = s & userInRoom uid rid'
                 legalCard   = s & anyOf (appRoomDeck rid' . folded) (== crd)
                 isLegalVote = inRoom && legalCard
-            if not isLegalVote
+                voting      = (s ^? appRoomState rid') == Just Voting
+            if not isLegalVote && not voting
                 then return s
                 else do
                     let newState       = s & appRoomVote rid' uid ?~ crd
