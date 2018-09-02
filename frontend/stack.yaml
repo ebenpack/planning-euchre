@@ -12,8 +12,14 @@ packages:
 - '.'
 - ../common
 
+flags:
+  miso:
+    jsaddle: true
+
+
 allow-newer: true
 extra-deps:
-  - miso-0.20.0.0
+  - jsaddle-warp-0.9.5.0
+  - miso-0.21.1.0
   - servant-0.12.1
   - cabal-doctest-1.0.6

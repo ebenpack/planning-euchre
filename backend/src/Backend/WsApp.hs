@@ -1,7 +1,5 @@
 {-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 module Backend.WsApp
     ( wsApp
     , State(State)
@@ -10,47 +8,107 @@ module Backend.WsApp
     )
 where
 
-import qualified Control.Concurrent     as Concurrent
-import qualified Control.Exception      as Exception
-import           Control.Lens           (allOf, anyOf, at, makeLenses, sans,
-                                         (%~), (&), (.~), (?~), (^.), (^..),
-                                         (^?), _Just)
-import           Control.Lens.Fold      (folded)
-import           Control.Lens.Traversal (traverse)
-import           Control.Lens.Tuple     (_1, _2)
-import qualified Control.Monad          as Monad
-import qualified Control.Monad.Loops    as Loops
-import           Data.Aeson             (encode)
-import           Data.ByteString.Lazy   (ByteString)
-import qualified Data.IntMap.Strict     as M
-import           Data.Maybe             (isJust)
-import qualified Data.Text              as Text
-import qualified Network.WebSockets     as WS
+import qualified Control.Concurrent            as Concurrent
+import qualified Control.Exception             as Exception
+import           Control.Lens                   ( allOf
+                                                , anyOf
+                                                , at
+                                                , sans
+                                                , (%~)
+                                                , (&)
+                                                , (.~)
+                                                , (?~)
+                                                , (^.)
+                                                , (^?)
+                                                , _Just
+                                                )
+import           Control.Lens.Fold              ( folded )
+import           Control.Lens.Traversal         ( traverse )
+import           Control.Lens.Tuple             ( _2 )
+import qualified Control.Monad                 as Monad
+import qualified Control.Monad.Loops           as Loops
+import           Data.Aeson                     ( encode )
+import           Data.ByteString.Lazy           ( ByteString )
+import qualified Data.IntMap.Strict            as M
+import           Data.Maybe                     ( isJust )
+import qualified Data.Text                     as Text
+import qualified Network.WebSockets            as WS
 
-import qualified Common.App             as A (App, Users, rooms, users)
-import           Common.Card            (Card)
-import           Common.Command         (Command (Connect, Connected, CreateNewStory, CreateRoom, DestroyRoom, JoinRoom, LeaveRoom, NewStoryCreated, RoomCreated, RoomDestroyed, RoomJoined, RoomLeft, Vote, VotingComplete),
-                                         parseCommand)
-import           Common.Deck            (Deck)
-import           Common.Room            (Private, Room (Room), RoomId, RoomName,
-                                         roomDeck, roomOwner, roomStory,
-                                         roomUsers, _roomDeck, _roomId,
-                                         _roomName, _roomOwner, _roomPrivate,
-                                         _roomResult, _roomStory, _roomUsers)
-import           Common.Story           (Story)
-import           Common.User            (User (User), UserId, UserName, userId,
-                                         _userId, _userName)
+import qualified Common.App                    as A
+                                                ( Users
+                                                , rooms
+                                                , users
+                                                )
+import           Common.Card                    ( Card )
+import           Common.Command                 ( Command
+                                                    ( Connect
+                                                    , Connected
+                                                    , CreateNewStory
+                                                    , CreateRoom
+                                                    , DestroyRoom
+                                                    , JoinRoom
+                                                    , LeaveRoom
+                                                    , NewStoryCreated
+                                                    , RoomCreated
+                                                    , RoomDestroyed
+                                                    , RoomJoined
+                                                    , RoomLeft
+                                                    , Vote
+                                                    , VotingComplete
+                                                    )
+                                                , parseCommand
+                                                )
+import           Common.Deck                    ( Deck )
+import           Common.Room                   as Room
+                                                ( Private
+                                                , Room(Room)
+                                                , RoomId
+                                                , RoomName
+                                                , RoomState(Voting, Results)
+                                                , _roomDeck
+                                                , _roomId
+                                                , _roomName
+                                                , _roomOwner
+                                                , _roomPrivate
+                                                , _roomResult
+                                                , _roomStory
+                                                , _roomUsers
+                                                , _roomState
+                                                )
+import           Common.Story                   ( Story )
+import           Common.User                    ( User(User)
+                                                , UserName
+                                                , userId
+                                                , _userId
+                                                , _userName
+                                                )
+import           Backend.State                 as State
+                                                ( UserState
+                                                    ( UserState
+                                                    , _connection
+                                                    , _room
+                                                    )
+                                                , State(State, _app, _userState)
+                                                , CommandHandler
+                                                , room
+                                                , app
+                                                , userState
+                                                , appRoomUser
+                                                , appRoomUsers
+                                                , appRoomStory
+                                                , appRoomVotes
+                                                , appRoomState
+                                                , appRoom
+                                                , appUser
+                                                , userStateConnection
+                                                , userStateRoom
+                                                , appRoomVote
+                                                , appRoomDeck
+                                                , userInAnyRoom
+                                                , userInRoom
+                                                , userOwnsRoom
+                                                )
 
-
-data UserState = UserState { _connection :: WS.Connection
-                           , _room       :: Maybe RoomId}
-
-data State = State { _app :: A.App, _userState :: M.IntMap UserState }
-
-type CommandHandler = State -> User -> IO State
-
-makeLenses ''UserState
-makeLenses ''State
 
 nextId :: M.IntMap a -> Int
 nextId m = head $ dropWhile (`M.member` m) [1 ..]
@@ -63,51 +121,27 @@ broadcast s users msg = Monad.forM_ users $ \u -> broadcastUser s u msg
 broadcastUser :: State -> User -> ByteString -> IO ()
 broadcastUser state user msg =
     let uid  = user ^. userId
-        conn = state ^? userState . at uid . _Just . connection
+        conn = state ^? userStateConnection uid
     in  case conn of
             Just conn' -> WS.sendTextData conn' msg
             _          -> return ()
 
 
 broadcastApp :: State -> ByteString -> IO ()
-broadcastApp state msg = do
-    let appUsers = state ^. app . A.users
-    broadcast state appUsers msg
+broadcastApp state msg =
+    let appUsers = state ^. app . A.users in broadcast state appUsers msg
 
 
-broadcastRoom :: RoomId -> State -> ByteString -> IO ()
-broadcastRoom rid state msg = do
-    let rmUsers = state ^. app . A.rooms . at rid . _Just . roomUsers
-    broadcast state (M.map fst rmUsers) msg
-
-
--- |Predicate function indicating whether a given user currently resides in some (any) room
-userInAnyRoom :: UserId -> State -> Bool
-userInAnyRoom uid = anyOf
-    (userState . at uid . folded)
-    (\u -> case u ^. room of
-        Just _ -> True
-        _      -> False
-    )
-
-
--- |Predicate function indicating whether a given user currently resides in some (any) room
-userInRoom :: UserId -> RoomId -> State -> Bool
-userInRoom uid rid = anyOf
-    (app . A.rooms . at rid . _Just . roomUsers . folded . _1 . userId)
-    (== uid)
-
-
--- |Predicate function indicating whether a given user owns the room specified
-userOwnsRoom :: UserId -> RoomId -> State -> Bool
-userOwnsRoom uid rid =
-    anyOf (app . A.rooms . at rid . _Just . roomOwner) (== uid)
+broadcastRoom :: State -> RoomId -> ByteString -> IO ()
+broadcastRoom state rid msg =
+    let rmUsers = state ^. appRoomUsers rid
+    in  broadcast state (M.map fst rmUsers) msg
 
 
 disconnectClient :: Concurrent.MVar State -> User -> IO ()
 disconnectClient state usr = Concurrent.modifyMVar_ state $ \s -> do
     let uid      = usr ^. userId
-        rm       = s ^? userState . at uid . _Just . room . _Just
+        rm       = s ^? userStateRoom uid . _Just
         newState = s & app . A.users %~ sans uid & userState %~ sans uid
 
     case rm of
@@ -119,15 +153,14 @@ disconnectClient state usr = Concurrent.modifyMVar_ state $ \s -> do
 
 connectClient :: UserName -> Concurrent.MVar State -> WS.Connection -> IO User
 connectClient uname state conn = Concurrent.modifyMVar state $ \s -> do
-    let usrs = s ^. app . A.users
-        uid  = nextId usrs
-        usr  = User {_userName = uname, _userId = uid}
-        msg  = encode $ Connected uid
-        newState =
-            s & app . A.users . at uid ?~ usr & userState . at uid ?~ UserState
-                { _connection = conn
-                , _room       = Nothing
-                }
+    let usrs     = s ^. app . A.users
+        uid      = nextId usrs
+        usr      = User {_userName = uname, _userId = uid}
+        msg      = encode $ Connected uid
+        newState = s & appUser uid ?~ usr & userState . at uid ?~ UserState
+            { _connection = conn
+            , _room       = Nothing
+            }
     broadcastUser newState usr msg
     return (newState, usr)
 
@@ -138,6 +171,7 @@ createRoom rname stry dck prvt s usr = do
         uid           = usr ^. userId
         userNotInRoom = not (s & userInAnyRoom uid)
         rid           = nextId rms
+    -- TODO: Make user leave room?
     if userNotInRoom
         then do
             let rm = Room
@@ -149,19 +183,10 @@ createRoom rname stry dck prvt s usr = do
                     , _roomResult  = Nothing
                     , _roomDeck    = dck
                     , _roomPrivate = prvt
+                    , _roomState   = Voting
                     }
-                newState =
-                    s
-                        &  userState
-                        .  at uid
-                        .  _Just
-                        .  room
-                        ?~ rid
-                        &  app
-                        .  A.rooms
-                        .  at rid
-                        ?~ rm
-            broadcastRoom rid newState $ encode $ RoomCreated rm
+                newState = s & userStateRoom uid ?~ rid & appRoom rid ?~ rm
+            broadcastRoom newState rid $ encode $ RoomCreated rm
             return newState
         else return s
 
@@ -170,147 +195,113 @@ joinRoom :: RoomId -> CommandHandler
 joinRoom rid s usr = do
     let uid           = usr ^. userId
         userNotInRoom = not (s & userInAnyRoom uid)
-        room'         = s ^? app . A.rooms . at rid . _Just
     let newState = if userNotInRoom
             then
                 s
-                &  app
-                .  A.rooms
-                .  at rid
-                .  _Just
-                .  roomUsers
-                .  at uid
+                &  appRoomUser rid uid
                 ?~ (usr, Nothing)
-                &  userState
-                .  at uid
-                .  _Just
-                .  room
+                &  userStateRoom uid
                 ?~ rid
             else s
-    let room'' = newState ^? app . A.rooms . at rid . _Just
+    let room'' = newState ^? appRoom rid . _Just
     Monad.when userNotInRoom $ case room'' of
         Just r -> do
             let msg = encode $ RoomJoined r
-            broadcastRoom rid newState msg
+            broadcastRoom newState rid msg
         Nothing -> return ()
     return newState
 
 
 leaveRoom :: RoomId -> CommandHandler
 leaveRoom rid s usr = do
-    let uid = usr ^. userId
-        inRoom =
-            isJust $ s ^? app . A.rooms . at rid . _Just . roomUsers . at uid
+    let uid    = usr ^. userId
+        inRoom = isJust $ s ^? appRoomUser rid uid
     if inRoom
         then do
-            let newState =
-                    s & app . A.rooms . at rid . _Just . roomUsers %~ sans uid
-                newRoom = newState ^? app . A.rooms . at rid . _Just
+            let newState = s & appRoomUsers rid %~ sans uid
+                newRoom  = newState ^? appRoom rid . _Just
             case newRoom of
-                Just r  -> broadcastRoom rid newState $ encode $ RoomLeft r
+                Just r  -> broadcastRoom newState rid $ encode $ RoomLeft r
                 Nothing -> return ()
             return newState
         else return s
-
 
 destroyRoom :: RoomId -> CommandHandler
 destroyRoom rid s usr = do
     let uid    = usr ^. userId
         ownsRm = s & userOwnsRoom uid rid
-        msg    = encode $ RoomDestroyed rid
-    Monad.when ownsRm $ broadcastRoom rid s msg
-    return $ if ownsRm
-        then
-            s
-            &  userState
-            .  traverse
-            .  room
-            .~ Nothing
-            &  app
-            .  A.rooms
-            %~ sans rid
-        else s
+        rm     = s ^? appRoom rid . _Just
+    case rm of
+        Just rm' -> if ownsRm
+            then do
+                broadcastRoom s rid (encode $ RoomDestroyed rid)
+                return
+                    $  s
+                    &  userState
+                    .  traverse
+                    .  room
+                    .~ Nothing
+                    &  app
+                    .  A.rooms
+                    %~ sans rid
+            else do
+                broadcastRoom s rid (encode $ RoomLeft rm')
+                return $ s & appRoomUsers rid %~ sans uid
+        Nothing -> return s
 
 
 newStory :: RoomId -> Story -> CommandHandler
 newStory rid stry s usr = do
-    let uid    = usr ^. userId
-        ownsRm = s & userOwnsRoom uid rid
-        msg    = encode $ NewStoryCreated rid stry
-    Monad.when ownsRm $ broadcastRoom rid s msg
-    -- TODO: Check if story already in flight?
-    return $ if ownsRm
-        then
-            s
-            &  app
-            .  A.rooms
-            .  at rid
-            .  _Just
-            .  roomStory
-            .~ stry
-            &  app
-            .  A.rooms
-            .  at rid
-            .  _Just
-            .  roomUsers
-            .  traverse
-            .  _2
-            .~ Nothing
-        else s
+    let uid      = usr ^. userId
+        ownsRm   = s & userOwnsRoom uid rid
+        newState = if ownsRm
+            then
+                s
+                &  appRoomStory rid
+                .~ stry
+                &  appRoomVotes rid
+                .~ Nothing
+                &  appRoomState rid
+                .~ Voting
+            else s
+        rm = newState ^? appRoom rid . _Just
+    case rm of
+        Just rm' -> broadcastRoom newState rid $ encode $ NewStoryCreated rm'
+        _        -> return ()
+    return newState
 
-makeVote :: RoomId -> Card -> CommandHandler
-makeVote rid crd s usr = do
-    let uid       = usr ^. userId
-        inRoom    = s & userInRoom uid rid
-        legalCard = s & anyOf
-            (app . A.rooms . at rid . _Just . roomDeck . folded)
-            (== crd)
-        isLegalVote = inRoom && legalCard
-    if not isLegalVote
-        then return s
-        else do
-            let newState =
-                    s
-                        &  app
-                        .  A.rooms
-                        .  at rid
-                        .  _Just
-                        .  roomUsers
-                        .  at uid
-                        .  _Just
-                        .  _2
-                        ?~ crd
-                votingComplete = newState & allOf
-                    (app . A.rooms . at rid . _Just . roomUsers . folded . _2)
-                    (\case
-                        Just _ -> True
-                        _      -> False
-                    )
-                votes =
-                    newState
-                        ^.. app
-                        .   A.rooms
-                        .   at rid
-                        .   _Just
-                        .   roomUsers
-                        .   traverse
-                        .   _2
-                        .   _Just
-                msg = encode $ VotingComplete votes
+makeVote :: Card -> CommandHandler
+makeVote crd s usr = do
+    let uid = usr ^. userId
+        rid = s ^? userStateRoom uid . _Just
+    case rid of
+        Nothing   -> return s
+        Just rid' -> do
+            let inRoom      = s & userInRoom uid rid'
+                legalCard   = s & anyOf (appRoomDeck rid' . folded) (== crd)
+                isLegalVote = inRoom && legalCard
+            if not isLegalVote
+                then return s
+                else do
+                    let newState       = s & appRoomVote rid' uid ?~ crd
+                        votingComplete = newState & allOf
+                            (appRoomUsers rid' . folded . _2)
+                            (\case
+                                Just _ -> True
+                                _      -> False
+                            )
+                        newState' = if votingComplete
+                            then newState & appRoomState rid' .~ Results
+                            else newState
+                        rm = newState' ^? appRoom rid' . _Just
 
-            Monad.when votingComplete $ broadcastRoom rid s msg
-            return $ if votingComplete
-                then
-                    newState
-                    &  app
-                    .  A.rooms
-                    .  at rid
-                    .  _Just
-                    .  roomUsers
-                    .  traverse
-                    .  _2
-                    .~ Nothing
-                else newState
+                    Monad.when votingComplete $ case rm of
+                        Just rm' -> broadcastRoom
+                            newState'
+                            rid'
+                            (encode $ VotingComplete rm')
+                        _ -> return ()
+                    return newState'
 
 
 -- TODO: REMOVE
@@ -327,7 +318,7 @@ handleCommand cmd state usr = Concurrent.modifyMVar_ state $ \s -> case cmd of
     JoinRoom    rid                -> joinRoom rid s usr
     LeaveRoom   rid                -> leaveRoom rid s usr
     CreateNewStory rid stry        -> newStory rid stry s usr
-    Vote           rid crd         -> makeVote rid crd s usr
+    Vote crd                       -> makeVote crd s usr
     _                              -> printState s usr
 
 
@@ -343,8 +334,8 @@ getUserName :: WS.Connection -> IO UserName
 getUserName conn = Loops.untilJust $ do
     msg :: Text.Text <- WS.receiveData conn
     case parseCommand msg of
-        Just (Connect uname) -> return $ Just uname
-        _                    -> return Nothing
+        Just (Connect uname) | not $ Text.null uname -> return $ Just uname
+        _ -> return Nothing
 
 
 wsApp :: Concurrent.MVar State -> WS.ServerApp

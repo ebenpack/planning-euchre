@@ -1,5 +1,4 @@
 {
   "languageServerHaskell.useCustomHieWrapper": true,
-  "languageServerHaskell.useCustomHieWrapperPath":
-    "${workspaceFolder}/../hie.sh"
+  "languageServerHaskell.useCustomHieWrapperPath": "~/.local/bin/hie-wrapper",
 }

@@ -16,6 +16,7 @@ executables:
     - base
     - common
     - frontend
+    - jsaddle-warp
     - miso
 
 library:

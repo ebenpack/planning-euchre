@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 DOCKER_IMAGE="ghcjs:lts-9.21"
 DOCKER_NAME="planning_euchre_$(uuidgen)"
 

@@ -5,8 +5,9 @@
 
 module Common.View where
 
+import           Control.Lens       (anyOf, at, folded, (&), (^.), (^?), _1,
+                                     _Just)
 import qualified Data.IntMap.Strict as M
-import           Data.Monoid        (mempty, (<>))
 import           Data.Proxy         (Proxy (..))
 import qualified Data.Text          as Text
 import           Miso               (View)
@@ -16,7 +17,7 @@ import qualified Miso.String        as Miso
 import           Servant.API        ((:<|>) (..))
 import           Text.Read          (readMaybe)
 
-import           Common.Card        (Card (..))
+import           Common.Card        (Card)
 import           Common.Deck        (Deck)
 import           Common.Model       as Model
 import           Common.Room        as Room
@@ -24,7 +25,11 @@ import           Common.Routes      as Routes
 import           Common.User        as User
 
 viewModel :: Model.Model -> View Model.Action
-viewModel model = view
+viewModel model = section_
+    [class_ "section"]
+    [ div_
+        [class_ "container"]
+        [view]]
   where
     view =
       either (const page404View) id $
@@ -158,38 +163,117 @@ joinRoomView m =
                 ]
             ])
 
+
+votingView :: Model.Model -> Room.Room -> [View Action]
+votingView m rm =
+    let
+        vt = _vote m
+    in
+        roomHeader_ m rm ++
+        cardView m rm [""] vt
+
+resultsView :: Model.Model -> Room.Room -> [View Action]
+resultsView m rm =
+    let
+        vt = _vote m
+        usrs = (Room._roomUsers rm)
+        uid = m ^. Model.userId
+        rid = m ^? Model.room . _Just . Room.roomId
+        userOwnsRoom = (m ^? Model.room . _Just . Room.roomOwner) == uid
+        newStory =
+            if userOwnsRoom
+            then
+                [ label_ [for_ "new_story", class_ "label"] [text "New Story:"]
+                , input_
+                    [ id_ "new_story"
+                    , class_ "input"
+                    , onInput Model.CreateRoomUpdateStory
+                    , value_ $ Model._roomStory m
+                    ]
+                , button_
+                    [ onClick $ case rid of
+                        Just rid' -> Model.CreateNewStory rid' (Miso.fromMisoString $ Model._roomStory m)
+                        Nothing -> Model.NoOp
+                    , class_ "button"]
+                    [text "New story"]]
+            else []
+    in
+        roomHeader_ m rm ++
+        results usrs ++
+        newStory ++
+        cardView m rm [""] vt
+    where
+        results usrs =
+            map (\u ->
+                let
+                    usr = (fst . snd) u
+                    crd = case (snd . snd) u of
+                        Just c  -> (Text.pack . show) c
+                        Nothing -> ""
+                in
+                    p_
+                        []
+                        [text $ Miso.toMisoString $ Text.concat [User._userName usr, " ", crd]]
+                ) $ M.toList usrs
+
+roomHeader_ :: Model.Model -> Room.Room -> [View Action]
+roomHeader_ _ rm =
+    let
+        rmName = Room._roomName rm
+        stry = Room._roomStory rm
+        prvt = Room._roomPrivate rm
+        usrs = Text.intercalate ", " $ map (User._userName . fst . snd) $ M.toList (Room._roomUsers rm)
+    in
+        [ h2_ [] [text $ Miso.toMisoString rmName]
+        , div_
+            []
+            [ p_ [] [text $ Miso.toMisoString stry]
+            , p_ [] [text $ Miso.toMisoString usrs]
+            , p_
+                []
+                [ text $
+                if prvt
+                    then "Private"
+                    else "Public"
+                ]
+            ]
+        ]
+
 roomView :: Room.RoomId -> Model.Model -> View Action
 roomView _ m =
-    let rm = _room m in
-    case rm of
+    case _room m of
         Nothing -> div_ [] [text "Whoopsie, something seems to have gone wrong"]
         Just rm' ->
-            let
-                rmName = Room._roomName rm'
-                stry = Room._roomStory rm'
-                prvt = Room._roomPrivate rm'
-                dck = Room._roomDeck rm'
-                usrs = Text.intercalate ", " $ map (User._userName . fst . snd) $ M.toList (Room._roomUsers rm')
-                crds = map (text . Miso.toMisoString . show) dck
-            in
-                div_
-                    []
-                    ([ h2_ [] [text $ Miso.toMisoString rmName]
-                    , div_
-                        []
-                        [ p_ [] [text $ Miso.toMisoString stry]
-                        , p_ [] [text $ Miso.toMisoString usrs]
-                        , p_
-                            []
-                            [ text $
-                            if prvt
-                                then "Private"
-                                else "Public"
-                            ]
-                        ]
-                    ] ++
-                    crds)
+            div_
+                []
+                (case Room._roomState rm' of
+                    Room.Voting  -> votingView m rm'
+                    Room.Results -> resultsView m rm')
 
+
+cardView :: Model.Model -> Room.Room -> [String] -> Maybe Card -> [View Action]
+cardView _ rm cls vt =
+    let
+        dck = Room._roomDeck rm
+    in
+        [div_
+            [class_ $ Miso.toMisoString $ unwords ("deck" : "is-multiline" : "columns" : cls)]
+            (map (\c ->
+                let match = case vt of
+                        Just crd | crd == c -> True
+                        _                   -> False
+                    cardClass = Text.intercalate " " $ ["card"] ++ if match then ["selected"] else []
+                in
+                    div_
+                        [class_ "column is-one-quarter"]
+                        [div_ [class_ $ Miso.toMisoString cardClass]
+                            [div_
+                                [class_ "level"]
+                                [div_
+                                    [onClick $ Model.Vote c
+                                    , class_ "level-item"]
+                                    [text $ Miso.toMisoString $ show c]]
+                            ]]) dck)]
 
 -- Handle 404 errors.
 page404View :: View Model.Action

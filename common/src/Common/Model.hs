@@ -10,7 +10,7 @@ import qualified Servant.API    as Servant
 import           Common.Card    (Card)
 import           Common.Command (Command (..))
 import           Common.Deck    (Deck)
-import           Common.Room    (Private, Room (Room), RoomId, RoomName)
+import           Common.Room    (Private, Room, RoomId, RoomName)
 import           Common.Story   (Story)
 import           Common.User    (UserId, UserName)
 
@@ -23,6 +23,7 @@ data Model = Model
   , _roomStory   :: !MisoString
   , _userId      :: !(Maybe UserId)
   , _roomPrivate :: !Bool
+  , _vote        :: !(Maybe Card)
   , _room        :: !(Maybe Room)
   } deriving (Eq, Show)
 
@@ -38,6 +39,7 @@ initialModel initialUri = Model
     , _roomStory   = ""
     , _userId      = Nothing
     , _roomPrivate = False
+    , _vote        = Nothing
     , _room        = Nothing
     }
 
@@ -51,7 +53,8 @@ data Action
   | JoinRoom RoomId
   | RoomJoined Room
   | Connect UserName
-  | Connected
+  | Connected UserId
+  | Vote Card
   | UpdateMessage MisoString
   | SignInUpdateUserName MisoString
   | CreateRoomUpdateStory MisoString
@@ -59,4 +62,7 @@ data Action
   | CreateRoomUpdatePrivacy Bool
   | CreateRoomUpdateDeck Card Bool
   | JoinRoomUpdateId MisoString
+  | VotingComplete Room
+  | CreateNewStory RoomId MisoString
+  | NewStoryCreated Room
   deriving (Show, Eq)

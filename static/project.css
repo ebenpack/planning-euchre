@@ -1,0 +1,9 @@
+.deck .card .level-item {
+    height: 300px;
+    font-size: 3em;
+    cursor: pointer;
+}
+
+.deck .card.selected {
+    background-color: #ffb5c0;
+}

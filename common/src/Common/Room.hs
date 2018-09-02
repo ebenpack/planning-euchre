@@ -14,7 +14,9 @@ module Common.Room
         , _roomDeck
         , _roomResult
         , _roomPrivate
+        , _roomState
         )
+    , RoomState (Voting, Results)
     , roomId
     , roomName
     , roomOwner
@@ -23,6 +25,7 @@ module Common.Room
     , roomStory
     , roomDeck
     , roomPrivate
+    , roomState
     )
 where
 
@@ -33,7 +36,8 @@ import           Common.Story       (Story)
 import           Common.User        (User, UserId)
 import           Control.Lens       (makeLenses)
 import           Data.Aeson         (FromJSON (parseJSON), ToJSON (toEncoding),
-                                     genericParseJSON, genericToEncoding)
+                                     defaultOptions, genericParseJSON,
+                                     genericToEncoding)
 import qualified Data.IntMap.Strict as M
 import           GHC.Generics       (Generic)
 
@@ -45,6 +49,13 @@ type RoomName = String
 
 type Result = Maybe Card
 
+data RoomState = Voting | Results deriving (Show, Generic, Eq)
+
+instance ToJSON RoomState where
+    toEncoding = genericToEncoding defaultOptions
+
+instance FromJSON RoomState
+
 data Room = Room { _roomId      :: RoomId
                  , _roomName    :: RoomName
                  , _roomOwner   :: UserId
@@ -52,7 +63,8 @@ data Room = Room { _roomId      :: RoomId
                  , _roomResult  :: Result
                  , _roomStory   :: Story
                  , _roomDeck    :: Deck
-                 , _roomPrivate :: Private } deriving (Show, Generic, Eq)
+                 , _roomPrivate :: Private
+                 , _roomState   :: RoomState } deriving (Show, Generic, Eq)
 
 makeLenses ''Room
 

@@ -32,6 +32,9 @@ updateModel (Model.HandleURI uri  ) = Model.uri .= uri
 updateModel (Model.Connect   uname) = scheduleIO $ do
   send $ Command.Connect uname
   pure Model.NoOp
+updateModel (Model.Connected uid) = do
+    Model.userId ?= uid
+    scheduleIO $ pure $ Model.ChangeURI Routes.joinRoomLink
 updateModel (Model.SendMessage msg) = scheduleIO $ do
   send msg
   pure Model.NoOp
@@ -49,6 +52,13 @@ updateModel (Model.CreateRoom rname stry deck private) = do
   scheduleIO $ do
     send msg
     pure Model.NoOp
+updateModel (Model.Vote crd) = do
+    let msg = Command.Vote crd
+    Model.vote ?= crd
+    scheduleIO $ do
+      send msg
+      pure Model.NoOp
+updateModel (Model.VotingComplete rm) = Model.room ?= rm
 -- Sign in
 updateModel (Model.SignInUpdateUserName    n        ) = Model.userName .= n
 -- Create room
@@ -60,6 +70,14 @@ updateModel (Model.CreateRoomUpdateDeck card checked) = if checked
   else Model.roomDeck %= (filter (/= card))
 -- Join room
 updateModel (Model.JoinRoomUpdateId rid) = Model.roomId .= rid
+updateModel (Model.NewStoryCreated rm) = do
+    Model.room ?= rm
+    Model.vote .= Nothing
+updateModel (Model.CreateNewStory rid stry) = do
+    let msg = Command.CreateNewStory rid $ fromMisoString stry
+    scheduleIO $ do
+      send msg
+      pure Model.NoOp
 
 socketHandler :: WebSocket Command.Command -> Model.Action
 socketHandler WebSocketOpen = Model.NoOp
@@ -69,9 +87,7 @@ socketHandler (WebSocketMessage (Command.RoomCreated   rm )) = Model.RoomJoined 
 socketHandler (WebSocketMessage (Command.RoomDestroyed rid)) = Model.NoOp
 socketHandler (WebSocketMessage (Command.RoomJoined    rm )) = Model.RoomJoined rm
 socketHandler (WebSocketMessage (Command.RoomLeft rm )) = Model.RoomJoined rm
-socketHandler (WebSocketMessage (Command.Connected uid)) =
-  Model.ChangeURI Routes.joinRoomLink
+socketHandler (WebSocketMessage (Command.Connected uid)) = Model.Connected uid
 socketHandler (WebSocketMessage (Command.Disconnected uid)) = Model.NoOp
-socketHandler (WebSocketMessage (Command.NewStoryCreated rid stry)) =
-  Model.NoOp
-socketHandler (WebSocketMessage (Command.VotingComplete crds)) = Model.NoOp
+socketHandler (WebSocketMessage (Command.NewStoryCreated rm)) = Model.NewStoryCreated rm
+socketHandler (WebSocketMessage (Command.VotingComplete rm)) = Model.VotingComplete rm
