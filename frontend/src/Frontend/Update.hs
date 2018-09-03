@@ -93,12 +93,16 @@ socketHandler :: WebSocket Command.Command -> Model.Action
 socketHandler WebSocketOpen = Model.NoOp
 socketHandler (WebSocketClose _ _ _                        ) = Model.NoOp
 socketHandler (WebSocketError   _                          ) = Model.NoOp
-socketHandler (WebSocketMessage (Command.RoomCreated   rm )) = Model.RoomJoined rm
 socketHandler (WebSocketMessage (Command.RoomDestroyed rid)) = Model.RoomDestroyed
-socketHandler (WebSocketMessage (Command.RoomJoined    rm )) = Model.RoomJoined rm
-socketHandler (WebSocketMessage (Command.RoomLeft rm )) = Model.RoomJoined rm
 socketHandler (WebSocketMessage (Command.Connected uid)) = Model.Connected uid
 socketHandler (WebSocketMessage (Command.Disconnected uid)) = Model.NoOp
-socketHandler (WebSocketMessage (Command.NewStoryCreated rm)) = Model.NewStoryCreated rm
 socketHandler (WebSocketMessage (Command.VotingReadyToClose rid)) = Model.VotingReadyToClose rid
+-- TODO: Everything below is potentially leaking vote information prematurely.
+-- These updates could be more targeted to prevent this, which would also have the nice side
+-- effect of reducing payload size, but this will likely make the updates a bit more complicated
+-- so... maybe revisit this in the future.
+socketHandler (WebSocketMessage (Command.NewStoryCreated rm)) = Model.NewStoryCreated rm
+socketHandler (WebSocketMessage (Command.RoomCreated   rm )) = Model.RoomJoined rm
 socketHandler (WebSocketMessage (Command.VotingClosed rm)) = Model.VotingClosed rm
+socketHandler (WebSocketMessage (Command.RoomJoined    rm )) = Model.RoomJoined rm
+socketHandler (WebSocketMessage (Command.RoomLeft rm )) = Model.RoomJoined rm

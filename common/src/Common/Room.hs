@@ -48,6 +48,8 @@ type RoomId = Int
 
 type RoomName = Text.Text
 
+type RoomUsers = M.IntMap (User, Maybe Card)
+
 data RoomState = VotingOpen | VotingComplete | VotingClosed deriving (Show, Generic, Eq)
 
 instance ToJSON RoomState where
@@ -58,7 +60,7 @@ instance FromJSON RoomState
 data Room = Room { _roomId      :: RoomId
                  , _roomName    :: RoomName
                  , _roomOwner   :: UserId
-                 , _roomUsers   :: M.IntMap (User, Maybe Card)
+                 , _roomUsers   :: RoomUsers
                  , _roomStory   :: Story
                  , _roomDeck    :: Deck
                  , _roomPrivate :: Private
