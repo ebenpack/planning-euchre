@@ -22,9 +22,7 @@ import           Control.Lens                   ( allOf
                                                 , (^?)
                                                 , _Just
                                                 )
-import           Control.Lens.Fold              ( folded
-                                                , filtered
-                                                )
+import           Control.Lens.Fold              ( folded )
 import           Control.Lens.Traversal         ( traverse )
 import           Control.Lens.Tuple             ( _2 )
 import qualified Control.Monad                 as Monad
@@ -222,7 +220,6 @@ leaveRoom rid s usr = do
                             &  userStateRoom uid
                             .~ Nothing
                     rm     = newState ^? appRoom rid . _Just
-                    voting = (s ^? appRoomState rid) == Just VotingOpen
                     votingComplete =
                         newState & allOf (appRoomUsers rid . folded . _2) isJust
                     newState' = if votingComplete

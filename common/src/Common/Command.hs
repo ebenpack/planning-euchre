@@ -5,17 +5,19 @@ module Common.Command
     )
 where
 
-import           Common.Card          (Card)
-import           Common.Deck          (Deck)
-import           Common.Room          (Private, Room, RoomId, RoomName)
-import           Common.Story         (Story)
-import           Common.User          (UserId, UserName)
 import           Data.Aeson           (FromJSON, ToJSON (toEncoding), decode,
                                        defaultOptions, genericToEncoding)
 import           Data.ByteString.Lazy (fromStrict)
 import qualified Data.Text            as Text
 import           Data.Text.Encoding   (encodeUtf8)
 import           GHC.Generics         (Generic)
+
+import           Common.Card          (Card)
+import           Common.Deck          (Deck)
+import           Common.Room          (Private, Room, RoomId, RoomName)
+import           Common.Story         (Story)
+import           Common.User          (UserId, UserName)
+
 
 data Command =
     CreateRoom RoomName Story Deck Private

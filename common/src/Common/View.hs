@@ -5,25 +5,35 @@
 
 module Common.View where
 
-import           Control.Lens       (anyOf, at, folded, (&), (^.), (^?), _1,
-                                     _Just)
+import           Control.Lens       ((^.), (^?), _Just)
 import qualified Data.IntMap.Strict as M
 import           Data.Maybe         (isJust)
-import           Data.Proxy         (Proxy (..))
+import           Data.Proxy         (Proxy (Proxy))
 import qualified Data.Text          as Text
 import           Miso               (View)
 import qualified Miso
-import           Miso.Html
+import           Miso.Html          (button_, checked_, class_, div_, for_, h2_,
+                                     id_, input_, label_, name_, onChecked,
+                                     onClick, onInput, p_, section_, text,
+                                     type_, value_)
 import qualified Miso.String        as Miso
-import           Servant.API        ((:<|>) (..))
+import           Servant.API        ((:<|>) ((:<|>)))
 import           Text.Read          (readMaybe)
 
 import           Common.Card        (Card)
 import           Common.Deck        (Deck)
-import           Common.Model       as Model
-import           Common.Room        as Room
-import           Common.Routes      as Routes
-import           Common.User        as User
+import           Common.Model       as Model (Action (CloseVote, Connect, CreateNewStory, CreateRoom, CreateRoomUpdateDeck, CreateRoomUpdateName, CreateRoomUpdatePrivacy, CreateRoomUpdateStory, JoinRoom, JoinRoomUpdateId, NoOp, SignInUpdateUserName, Vote, VotingClosed),
+                                              Model, room, roomId, userId,
+                                              _room, _roomDeck, _roomId,
+                                              _roomName, _roomPrivate,
+                                              _roomStory, _uri, _userName,
+                                              _vote)
+import           Common.Room        as Room (Room, RoomId, RoomState (VotingClosed, VotingComplete, VotingOpen),
+                                             roomId, roomOwner, _roomDeck,
+                                             _roomName, _roomPrivate,
+                                             _roomState, _roomStory, _roomUsers)
+import           Common.Routes      as Routes (ViewRoutes)
+import           Common.User        as User (User, userId, _userName)
 
 viewModel :: Model.Model -> View Model.Action
 viewModel model = section_

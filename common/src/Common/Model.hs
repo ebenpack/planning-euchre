@@ -3,12 +3,12 @@
 
 module Common.Model where
 
-import           Control.Lens
+import           Control.Lens   (makeLenses)
 import           Miso.String    (MisoString)
 import qualified Servant.API    as Servant
 
 import           Common.Card    (Card)
-import           Common.Command (Command (..))
+import           Common.Command (Command)
 import           Common.Deck    (Deck)
 import           Common.Room    (Private, Room, RoomId, RoomName)
 import           Common.Story   (Story)
